@@ -23,10 +23,14 @@ export const en = {
   // Region levels: singular for labels, plural for section headings
   'level.neighbourhood': 'Neighbourhood',
   'level.city': 'City',
+  'level.county': 'County',
+  'level.park': 'Park / forest',
   'level.state': 'State / province',
   'level.country': 'Country',
   'levels.neighbourhood': 'Neighbourhoods',
   'levels.city': 'Cities',
+  'levels.county': 'Counties',
+  'levels.park': 'Parks & forests',
   'levels.state': 'States & provinces',
   'levels.country': 'Countries',
 
@@ -64,7 +68,9 @@ export const en = {
 
   // Regions screen
   'regions.title': 'Regions',
-  'regions.subtitle': 'Every area you explore is added here automatically, from neighbourhoods up to countries.',
+  'regions.subtitle':
+    'Every area you explore is added here automatically: neighbourhoods, cities, counties, parks and forests, ' +
+    'states and countries.',
   'regions.youAreHere': 'You are here',
   'regions.lookingUp': 'Looking up the areas around you…',
   'regions.savedAwaitingSignal': 'Your exploring is saved. The areas you visited will appear once you have signal.',

@@ -4,7 +4,7 @@ import { useSyncExternalStore } from 'react';
 import { Viewport, fogForViewport, fogWindow } from '../core/fog';
 import { addPendingPlace, removePendingPlace } from '../core/pending';
 import { shapeContains } from '../core/geometry';
-import { Region, RegionRecord, addCellsToRegion, applyWater, hydrateRegion } from '../core/regions';
+import { LOCAL_LEVELS, Region, RegionRecord, addCellsToRegion, applyWater, hydrateRegion } from '../core/regions';
 import { tilesForCells } from '../core/water';
 import { BASE_ZOOM, LatLng, distanceMeters, latToY, lonToX, parentKey } from '../core/tiles';
 import { UnitPreference, UnitSystem, resolveUnits } from '../core/units';
@@ -269,7 +269,7 @@ class ExplorationStore {
   }
 
   private isCovered(p: LatLng): boolean {
-    return this.regionsAt(p).some((r) => r.level === 'neighbourhood' || r.level === 'city');
+    return this.regionsAt(p).some((r) => LOCAL_LEVELS.includes(r.level));
   }
 
   /**
@@ -330,9 +330,11 @@ class ExplorationStore {
   }
 
   private defaultSelection(): string | null {
-    // Prefer the city: big enough to be a goal, small enough to make progress.
+    // Prefer the city (big enough to be a goal, small enough to make
+    // progress), then a park or county out in the countryside.
     const here = this.position ? this.regionsAt(this.position) : this.regions;
-    return (here.find((r) => r.level === 'city') ?? here[0] ?? this.regions[0])?.id ?? null;
+    const pick = (['city', 'park', 'county'] as const).map((l) => here.find((r) => r.level === l)).find(Boolean);
+    return (pick ?? here[0] ?? this.regions[0])?.id ?? null;
   }
 }
 

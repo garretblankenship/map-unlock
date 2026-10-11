@@ -2,8 +2,15 @@ import { GeoJsonGeometry, Shape, scanShape, shapeCellCount, shapeContainsCell, s
 import { BASE_ZOOM } from './tiles';
 import { MASK_BITS, TileRange, WATER_TILE_MAX_ZOOM, WaterLookup, isWaterCell, tileCount } from './water';
 
-/** Administrative levels we track, from smallest to largest. */
-export const REGION_LEVELS = ['neighbourhood', 'city', 'state', 'country'] as const;
+/**
+ * Kinds of region we track, in the order they're listed: administrative
+ * areas from smallest to largest, with parks & forests (national/state
+ * parks, national forests, wilderness and nature reserves) after counties.
+ */
+export const REGION_LEVELS = ['neighbourhood', 'city', 'county', 'park', 'state', 'country'] as const;
+
+/** Local areas: being inside one means the boundaries around you are known. */
+export const LOCAL_LEVELS: readonly RegionLevel[] = ['neighbourhood', 'city', 'county', 'park'];
 export type RegionLevel = (typeof REGION_LEVELS)[number];
 
 export type RegionRecord = {

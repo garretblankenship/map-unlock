@@ -20,6 +20,7 @@ const TIMEOUT_MS = 30_000;
 const LOOKUPS: { zoom: number; threshold: number }[] = [
   { zoom: 14, threshold: 0.00005 },
   { zoom: 10, threshold: 0.0002 },
+  { zoom: 8, threshold: 0.0005 },
   { zoom: 5, threshold: 0.002 },
   { zoom: 3, threshold: 0.01 },
 ];
@@ -61,6 +62,7 @@ function request<T>(path: string): Promise<T> {
 export function levelForRank(rank: number): RegionLevel {
   if (rank <= 5) return 'country';
   if (rank <= 10) return 'state';
+  if (rank <= 13) return 'county';
   if (rank <= 17) return 'city';
   return 'neighbourhood';
 }
