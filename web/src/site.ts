@@ -5,12 +5,14 @@
  */
 export const site = {
   name: 'Open World Life',
+  url: 'https://openworldlife.com',
   tagline: 'Unlock the real world.',
   description:
     'A fog-of-war map for real life. Walk, hike, cycle and drive to clear the fog and complete every neighbourhood, city, park and country.',
   /** Who publishes the app, as it should appear in the policies. */
   publisher: '[Your name or company]',
-  supportEmail: '[support email]',
+  /** Make sure this mailbox exists and is watched before publishing. */
+  supportEmail: 'support@openworldlife.com',
   /** Jurisdiction whose laws govern the terms, e.g. "the State of Ohio, USA". */
   governingLaw: '[governing law]',
   /** Date the policies were last changed. */

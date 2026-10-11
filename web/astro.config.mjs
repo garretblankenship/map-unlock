@@ -9,6 +9,7 @@ if (missing.length) {
 }
 
 export default defineConfig({
+  site: site.url,
   // Pages are served as folders (/privacy/), which Amplify Hosting serves directly.
   trailingSlash: 'always',
   build: { format: 'directory' },

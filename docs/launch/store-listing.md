@@ -7,6 +7,13 @@
 - **Short description (Google Play, 80 chars):** Clear the fog from the
   real-world map as you walk, hike, cycle and drive.
 
+## URLs
+
+- Marketing / website: https://openworldlife.com/
+- Support: https://openworldlife.com/support/ (support@openworldlife.com)
+- Privacy policy: https://openworldlife.com/privacy/
+- Terms of use: https://openworldlife.com/terms/
+
 ## Description
 
 Explore the real world like an open-world game.

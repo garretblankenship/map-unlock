@@ -6,8 +6,11 @@
       website plus the map-data CDN (S3 + CloudFront).
 - [ ] Run the boundary pipeline on the planet (`pipeline/README.md`) and
       publish it with `web/scripts/upload-map-data.sh`.
-- [ ] Set `BOUNDARIES_URL`, `MAP_STYLE_URL` and `WEBSITE_URL` in `eas.json`
-      (production builds refuse to build without them).
+- [ ] Connect openworldlife.com to the Amplify app (`web/README.md`, step 4).
+- [ ] Set `BOUNDARIES_URL` and `MAP_STYLE_URL` in `eas.json` after the first
+      upload (`WEBSITE_URL` is already https://openworldlife.com).
+      Production builds refuse to build without them.
+- [ ] Set up the support@openworldlife.com mailbox.
 - [ ] Consider donating to OpenFreeMap, which serves the map tiles for free.
 
 ## Before the first store build
@@ -20,9 +23,11 @@
       keep it and test on iPad.
 - [ ] Set the version (`app.json` → `version`); EAS auto-increments build
       numbers for production (`eas.json`).
-- [ ] Fill in `web/src/site.ts` (publisher, support email, governing law,
-      date). The privacy policy, terms and support pages are on the website;
-      use `WEBSITE_URL/privacy/` and `WEBSITE_URL/support/` in both stores.
+- [ ] Fill in `web/src/site.ts` (publisher, governing law, date).
+- [ ] In App Store Connect and Play Console use:
+      privacy policy https://openworldlife.com/privacy/,
+      support / website https://openworldlife.com/support/ and
+      https://openworldlife.com/, support email support@openworldlife.com.
 - [ ] Device testing on real iPhone and Android: a hike with no signal, a
       saved offline area, background exploring with the screen off,
       battery over a long day, dark mode, the share sheet.

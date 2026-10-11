@@ -28,8 +28,20 @@ web/
    repository's `amplify.yml` handles the rest (Node 22, backend deploy,
    site build).
 3. When the build finishes, the site is at
-   `https://<branch>.<app-id>.amplifyapp.com`. Add your own domain under
-   **Hosting → Custom domains** (e.g. `openworldlife.com`).
+   `https://<branch>.<app-id>.amplifyapp.com`.
+4. Connect **openworldlife.com**: **Hosting → Custom domains → Add domain**,
+   map the root (`openworldlife.com`) and `www` to the `main` branch, and
+   let Amplify redirect `www` to the root. Amplify issues the certificate.
+   - Domain in Route 53 (same AWS account): Amplify adds the DNS records
+     itself.
+   - Domain at another registrar: add the CNAME records Amplify shows (one
+     to validate the certificate, one for the site, and for the root an
+     ALIAS/ANAME record if the registrar supports it; otherwise move DNS to
+     Route 53).
+   The app's builds already point at `https://openworldlife.com`
+   (`WEBSITE_URL` in `eas.json`).
+5. Set up the `support@openworldlife.com` mailbox (or change it in
+   `src/site.ts`): the stores and the support page list it.
 
 ## Publishing map data
 
@@ -44,7 +56,7 @@ scripts/upload-map-data.sh /path/to/pipeline-output                 # needs the 
 The script uploads to a new dated folder (`boundaries/v1-YYYY-MM-DD/`) and a
 content-named style file (`map/style-<hash>.json`), marks them immutable
 with a one-year cache, and prints the URLs. Put them in `eas.json` under
-`build.production.env`, along with the site:
+`build.production.env`, next to the site (already set):
 
 ```json
 "env": {
