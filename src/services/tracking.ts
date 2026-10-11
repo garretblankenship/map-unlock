@@ -1,9 +1,10 @@
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 
+import { addPendingPlace } from '../core/pending';
 import { Fix, cellsForMove, isUsableFix } from '../core/reveal';
 import { store } from '../state/store';
-import { getLastFix, saveCells, setLastFix } from './db';
+import { getLastFix, saveCells, setLastFix, updatePendingPlaces } from './db';
 
 export const BACKGROUND_TASK = 'map-unlock-background-location';
 
@@ -43,7 +44,14 @@ async function ingest(fixes: Fix[]): Promise<void> {
   if (!last || keys.size === 0) return;
   await setLastFix(last);
   const added = await saveCells([...keys], store.ready ? store.unlocked : undefined);
-  if (store.ready) store.applyNewCells(added);
+  if (store.ready) {
+    store.applyNewCells(added);
+  } else {
+    // With the UI asleep nobody checks which areas we're in, so remember where
+    // we went; the app looks those places up next time it has a connection.
+    const at = last;
+    await updatePendingPlaces((l) => addPendingPlace(l, at));
+  }
 }
 
 // Background updates are delivered here, even if the app was swiped away

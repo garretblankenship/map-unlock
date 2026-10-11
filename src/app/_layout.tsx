@@ -7,12 +7,14 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
 
+import { startNetworkMonitor } from '../services/net';
 import { store } from '../state/store';
 import { colors } from '../theme';
 
 export default function RootLayout() {
   useEffect(() => {
     let cancelled = false;
+    const stopNetworkMonitor = startNetworkMonitor();
     (async () => {
       try {
         await store.load();
@@ -26,16 +28,17 @@ export default function RootLayout() {
     })();
 
     // Pick up anything the background task unlocked while we were away, and
-    // retry water lookups that failed (e.g. while offline).
+    // retry lookups that waited for a connection (water, places to look up).
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active' && store.ready) {
         void store.refreshCells();
-        store.loadRegionWater();
+        store.retryNetwork();
       }
     });
     return () => {
       cancelled = true;
       sub.remove();
+      stopNetworkMonitor();
     };
   }, []);
 

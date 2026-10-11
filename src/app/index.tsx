@@ -150,7 +150,9 @@ export default function MapScreen() {
             <Text style={styles.cardSub}>
               {store.discovering
                 ? 'Finding the areas around you…'
-                : store.position
+                : store.offline && store.position
+                  ? 'No signal — exploring still counts. Areas are looked up once you’re back online.'
+                  : store.position
                   ? 'No regions yet — tap to search for a city to unlock.'
                   : 'Waiting for your location…'}
             </Text>
@@ -162,6 +164,18 @@ export default function MapScreen() {
         <Pressable style={[styles.error, { top: insets.top + 130 }]} onPress={() => store.setError(null)}>
           <Text style={styles.errorText}>{store.lastError}</Text>
         </Pressable>
+      ) : null}
+
+      {store.offline || (store.pendingPlaces > 0 && !store.discovering) ? (
+        <View style={[styles.pill, styles.status]}>
+          <Ionicons name="cloud-offline-outline" size={16} color={colors.muted} />
+          <Text style={styles.pillText}>
+            {store.offline ? 'Offline · progress is saved' : 'Waiting for a better signal'}
+            {store.pendingPlaces > 0
+              ? ` · ${store.pendingPlaces} ${store.pendingPlaces === 1 ? 'place' : 'places'} to look up`
+              : ''}
+          </Text>
+        </View>
       ) : null}
 
       <View style={[styles.controls, { bottom: 24 }]}>
@@ -231,6 +245,7 @@ const styles = StyleSheet.create({
     height: 44,
     ...shadow,
   },
+  status: { position: 'absolute', left: 16, bottom: 80, height: 36, alignSelf: 'flex-start' },
   dot: { width: 10, height: 10, borderRadius: 5 },
   pillText: { fontSize: 13, fontWeight: '600', color: colors.text },
   round: {

@@ -2,6 +2,7 @@ import { inflate } from 'pako';
 
 import { TileRange, WaterLookup, WaterMask, makeWaterLookup, maskFromTile } from '../core/water';
 import { loadWaterMask, saveWaterMask } from './db';
+import { HttpError, NetworkError, fetchWithTimeout } from './net';
 
 /**
  * Downloads and caches water masks. Tiles come from OpenFreeMap, a free,
@@ -11,6 +12,8 @@ import { loadWaterMask, saveWaterMask } from './db';
 const TILEJSON_URL = 'https://tiles.openfreemap.org/planet';
 const MAX_PARALLEL = 4;
 const RETRY_AFTER_MS = 60_000;
+/** A busy city tile is ~150 KB, which takes a while on a weak signal. */
+const TIMEOUT_MS = 45_000;
 
 const tileId = (z: number, x: number, y: number) => `${z}/${x}/${y}`;
 
@@ -38,6 +41,11 @@ class WaterService {
     return true;
   }
 
+  /** Lets failed tiles be retried at once, e.g. when the signal comes back. */
+  retryFailed() {
+    this.failedAt.clear();
+  }
+
   /** Loads every tile in the range (from cache or network). Rejects if any fail. */
   async ensure(range: TileRange): Promise<void> {
     const jobs: Promise<void>[] = [];
@@ -56,7 +64,7 @@ class WaterService {
     if (existing) return existing;
     const failed = this.failedAt.get(id);
     if (failed && Date.now() - failed < RETRY_AFTER_MS) {
-      return Promise.reject(new Error('Water data unavailable (offline?)'));
+      return Promise.reject(new NetworkError('Water data unavailable (offline?)'));
     }
 
     const job = (async () => {
@@ -80,22 +88,25 @@ class WaterService {
 
   private async fetchMask(z: number, x: number, y: number): Promise<WaterMask> {
     const template = await this.template();
-    const res = await fetch(template.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y)));
-    // Empty tiles have no features at all, so no water.
-    if (res.status === 204 || res.status === 404) return null;
-    if (!res.ok) throw new Error(`Water tile ${z}/${x}/${y} failed (${res.status})`);
-    let data = new Uint8Array(await res.arrayBuffer());
+    const url = template.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y));
+    const raw = await fetchWithTimeout(url, {}, TIMEOUT_MS, async (res) => {
+      // Empty tiles have no features at all, so no water.
+      if (res.status === 204 || res.status === 404) return null;
+      if (!res.ok) throw new HttpError(`Water tile ${z}/${x}/${y} failed (${res.status})`, res.status);
+      return new Uint8Array(await res.arrayBuffer());
+    });
+    if (!raw) return null;
+    let data = raw;
     // Some hosts serve tiles gzipped without a Content-Encoding header.
     if (data[0] === 0x1f && data[1] === 0x8b) data = inflate(data);
     return data.length ? maskFromTile(data) : null;
   }
 
   private template(): Promise<string> {
-    this.tileTemplate ??= fetch(TILEJSON_URL)
-      .then((r) => {
-        if (!r.ok) throw new Error(`Map data unavailable (${r.status})`);
-        return r.json();
-      })
+    this.tileTemplate ??= fetchWithTimeout(TILEJSON_URL, {}, TIMEOUT_MS, async (r) => {
+      if (!r.ok) throw new HttpError(`Map data unavailable (${r.status})`, r.status);
+      return r.json();
+    })
       .then((j: { tiles?: string[] }) => {
         if (!j.tiles?.[0]) throw new Error('Map data has no tile URL');
         return j.tiles[0];

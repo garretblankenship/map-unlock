@@ -32,6 +32,13 @@ neighbourhood, city, state and country you visit gets a progress score
   place (e.g. "Sydney") and add it as a goal.
 - **Storage.** Everything is stored on the device in SQLite. There are no
   accounts and no servers.
+- **No signal? Keep exploring.** GPS works without a connection, and
+  unlocking is saved straight to the device, so hikes in the mountains or
+  deep woods count in full. Places you pass through without signal (or
+  while the app is closed) are queued, and their areas are looked up as
+  soon as you're back online. Every request has a deadline, so a weak
+  signal can't stall the app. Search needs a connection. The basemap
+  (Apple/Google Maps) only shows areas the phone has already cached.
 
 Settings live in `src/core/reveal.ts` (`REVEAL_SETTINGS`) and
 `src/core/fog.ts` (`FOG_SETTINGS`).

@@ -1,12 +1,14 @@
 import { useSyncExternalStore } from 'react';
 
 import { Viewport, fogForViewport, fogWindow } from '../core/fog';
+import { addPendingPlace, removePendingPlace } from '../core/pending';
 import { shapeContains } from '../core/geometry';
 import { Region, RegionRecord, addCellsToRegion, applyWater, hydrateRegion } from '../core/regions';
 import { tilesForCells } from '../core/water';
 import { BASE_ZOOM, LatLng, distanceMeters, latToY, lonToX, parentKey } from '../core/tiles';
 import * as db from '../services/db';
 import { regionsAt } from '../services/boundaries';
+import { isOnline, isTransient, onConnectivityChange } from '../services/net';
 import { water } from '../services/water';
 
 /**
@@ -30,12 +32,17 @@ class ExplorationStore {
   lastError: string | null = null;
   /** Bumped as water tiles arrive, so the fog can be redrawn. */
   waterVersion = 0;
+  /** No usable connection. Exploring still works; lookups wait for signal. */
+  offline = !isOnline();
+  /** Places visited without signal whose areas haven't been looked up yet. */
+  pendingPlaces = 0;
 
   private version = 0;
   private listeners = new Set<() => void>();
   private levelCache = new Map<number, Set<number>>();
   private lastDiscovery: { at: LatLng; time: number } | null = null;
   private waterTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastViewport: Viewport | null = null;
 
   constructor() {
     // Batch redraws while a screenful of water tiles streams in.
@@ -46,6 +53,21 @@ class ExplorationStore {
         this.emit();
       }, 150);
     });
+
+    onConnectivityChange((online) => {
+      this.offline = !online;
+      this.emit();
+      if (online) this.retryNetwork();
+    });
+  }
+
+  /** Catches up on everything that waited for a connection. */
+  retryNetwork() {
+    if (!this.ready) return;
+    water.retryFailed();
+    this.loadRegionWater();
+    if (this.lastViewport) this.requestWater(this.lastViewport);
+    void this.flushLookups();
   }
 
   subscribe = (fn: () => void) => {
@@ -69,6 +91,7 @@ class ExplorationStore {
     this.ready = true;
     this.emit();
     this.loadRegionWater();
+    void this.flushLookups();
   }
 
   /** Re-reads the database, e.g. after the background task ran while the UI was asleep. */
@@ -108,6 +131,7 @@ class ExplorationStore {
 
   /** Fetches water for the area on screen so it can be shown unfogged. */
   requestWater(viewport: Viewport) {
+    this.lastViewport = viewport;
     const w = fogWindow(viewport);
     const range = tilesForCells(w.level, w.x0, w.x1, w.y0, w.y1);
     if (!water.has(range)) water.ensure(range).catch(() => undefined);
@@ -196,26 +220,53 @@ class ExplorationStore {
       .sort((a, b) => a.totalCells - b.totalCells);
   }
 
+  private isCovered(p: LatLng): boolean {
+    return this.regionsAt(p).some((r) => r.level === 'neighbourhood' || r.level === 'city');
+  }
+
   /**
-   * Looks up the boundaries around the user when they're somewhere we don't
-   * have a neighbourhood or city for yet. Throttled to be gentle on the
-   * boundary service.
+   * Queues a lookup of the boundaries around the user when they're somewhere
+   * we don't have a neighbourhood or city for yet. Throttled to be gentle on
+   * the boundary service. The queue is saved, so places passed through
+   * without signal are looked up once there's a connection again.
    */
   private async maybeDiscover(p: LatLng) {
-    if (this.discovering) return;
-    const covered = this.regionsAt(p).some((r) => r.level === 'neighbourhood' || r.level === 'city');
-    if (covered) return;
+    if (this.isCovered(p)) return;
     const last = this.lastDiscovery;
     if (last && Date.now() - last.time < 120_000 && distanceMeters(last.at, p) < 500) return;
+    this.lastDiscovery = { at: p, time: Date.now() };
+    const list = await db.updatePendingPlaces((l) => addPendingPlace(l, p));
+    this.pendingPlaces = list.length;
+    this.emit();
+    void this.flushLookups();
+  }
+
+  /** Works through the queued places while there's a connection. */
+  async flushLookups() {
+    if (this.discovering || !this.ready) return;
+    let list = await db.updatePendingPlaces((l) => {
+      const open = l.filter((p) => !this.isCovered(p));
+      return open.length === l.length ? l : open;
+    });
+    this.pendingPlaces = list.length;
+    if (list.length === 0 || !isOnline()) return this.emit();
 
     this.discovering = true;
-    this.lastDiscovery = { at: p, time: Date.now() };
     this.emit();
     try {
-      await this.addRegions(await regionsAt(p.latitude, p.longitude));
+      for (let next: LatLng | undefined = list[0]; next; next = list[0]) {
+        const { regions, error } = await regionsAt(next.latitude, next.longitude);
+        await this.addRegions(regions);
+        if (error) throw error;
+        const done = next;
+        list = await db.updatePendingPlaces((l) => removePendingPlace(l, done).filter((p) => !this.isCovered(p)));
+        this.pendingPlaces = list.length;
+        this.emit();
+      }
       this.lastError = null;
     } catch (e) {
-      this.lastError = e instanceof Error ? e.message : String(e);
+      // Weak or no signal: the places stay queued for the next attempt.
+      if (!isTransient(e)) this.lastError = e instanceof Error ? e.message : String(e);
     } finally {
       this.discovering = false;
       this.emit();

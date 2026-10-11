@@ -2,13 +2,14 @@ import * as SQLite from 'expo-sqlite';
 
 import type { Fix } from '../core/reveal';
 import type { RegionRecord } from '../core/regions';
+import type { LatLng } from '../core/tiles';
 
 /**
  * Local persistence. Everything stays on the device:
  *  - cells:   every unlocked base-zoom cell
  *  - regions: boundaries the user has discovered or added
  *  - water:   cached water masks per map tile (see core/water.ts)
- *  - meta:    small key/value state (last GPS fix, settings)
+ *  - meta:    small key/value state (last GPS fix, places to look up, settings)
  */
 
 let db: SQLite.SQLiteDatabase | null = null;
@@ -128,4 +129,21 @@ export async function setLastFix(fix: Fix): Promise<void> {
 
 export async function resetAll(): Promise<void> {
   await getDb().execAsync('DELETE FROM cells; DELETE FROM regions; DELETE FROM meta;');
+}
+
+let pendingQueue: Promise<unknown> = Promise.resolve();
+
+/**
+ * Read-modify-write of the places waiting for a boundary lookup, serialized
+ * so the background task and the UI can't overwrite each other's changes.
+ */
+export function updatePendingPlaces(fn: (list: LatLng[]) => LatLng[]): Promise<LatLng[]> {
+  const run = pendingQueue.then(async () => {
+    const before = (await getMeta<LatLng[]>('pendingPlaces')) ?? [];
+    const after = fn(before);
+    if (after !== before) await setMeta('pendingPlaces', after);
+    return after;
+  });
+  pendingQueue = run.catch(() => undefined);
+  return run;
 }

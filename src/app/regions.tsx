@@ -17,6 +17,7 @@ import { ProgressBar } from '../components/ProgressBar';
 import { regionStats } from '../components/regionStats';
 import { LEVEL_LABELS, REGION_LEVELS, Region, RegionRecord } from '../core/regions';
 import { searchRegions } from '../services/boundaries';
+import { NetworkError } from '../services/net';
 import { useStore } from '../state/store';
 import { colors } from '../theme';
 
@@ -37,7 +38,13 @@ export default function RegionsScreen() {
     try {
       setResults(await searchRegions(query.trim()));
     } catch (e) {
-      setSearchError(e instanceof Error ? e.message : String(e));
+      setSearchError(
+        e instanceof NetworkError
+          ? 'Search needs a connection. Places you explore are still saved and looked up once you have signal.'
+          : e instanceof Error
+            ? e.message
+            : String(e),
+      );
     } finally {
       setSearching(false);
     }
@@ -160,7 +167,11 @@ export default function RegionsScreen() {
 
       {store.ready && store.regions.length === 0 && !results ? (
         <Text style={[styles.muted, { marginTop: 24 }]}>
-          {store.discovering ? 'Looking up the areas around you…' : 'No regions yet. Start walking or search above.'}
+          {store.discovering
+            ? 'Looking up the areas around you…'
+            : store.pendingPlaces > 0
+              ? 'Your exploring is saved. The areas you visited will appear once you have signal.'
+              : 'No regions yet. Start walking or search above.'}
         </Text>
       ) : null}
 
