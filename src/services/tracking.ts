@@ -1,12 +1,13 @@
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 
+import { INITIAL_MOTION, MotionMode, MotionState, nextMotion } from '../core/motion';
 import { addPendingPlace } from '../core/pending';
 import { BackgroundStep, backgroundStep } from '../core/permissions';
 import { Fix, cellsForMove, isUsableFix } from '../core/reveal';
 import { t } from '../i18n';
 import { store } from '../state/store';
-import { getLastFix, saveCells, setLastFix, updatePendingPlaces } from './db';
+import { getLastFix, getMeta, saveCells, setLastFix, setMeta, updatePendingPlaces } from './db';
 
 export const BACKGROUND_TASK = 'map-unlock-background-location';
 
@@ -56,11 +57,49 @@ async function ingest(fixes: Fix[]): Promise<void> {
   }
 }
 
+/**
+ * Background GPS settings for each motion mode (see core/motion.ts). Updates
+ * never pause on their own: on iOS a paused session only resumes when the
+ * app restarts it, which would lose the rest of a hike after a rest stop.
+ */
+function taskOptions(mode: MotionMode): Location.LocationTaskOptions {
+  const common: Location.LocationTaskOptions = {
+    // Not "Fitness": that tunes iOS for pedestrians, and driving counts too.
+    activityType: Location.ActivityType.Other,
+    pausesUpdatesAutomatically: false,
+    showsBackgroundLocationIndicator: true,
+    foregroundService: {
+      notificationTitle: t('location.notification.title'),
+      notificationBody: t('location.notification.body'),
+      notificationColor: '#2E7D5B',
+    },
+  };
+  return mode === 'moving'
+    ? { ...common, accuracy: Location.Accuracy.High, distanceInterval: 10, timeInterval: 5_000 }
+    : // Wi-Fi/cell-based where available; just enough to notice you've moved on.
+      { ...common, accuracy: Location.Accuracy.Balanced, distanceInterval: 50, timeInterval: 60_000 };
+}
+
+let motion: MotionState | null = null;
+
+/** Follows moving/still from background fixes and switches GPS settings to match. */
+async function updateMotion(fixes: Fix[]) {
+  motion ??= (await getMeta<MotionState>('motion')) ?? INITIAL_MOTION;
+  const before = motion.mode;
+  for (const fix of [...fixes].sort((a, b) => a.timestamp - b.timestamp)) motion = nextMotion(motion, fix);
+  await setMeta('motion', motion);
+  if (motion.mode !== before && (await isBackgroundTrackingActive())) {
+    await Location.startLocationUpdatesAsync(BACKGROUND_TASK, taskOptions(motion.mode));
+  }
+}
+
 // Background updates are delivered here, even if the app was swiped away
 // (Android) or suspended (iOS). Must be defined at module load time.
 TaskManager.defineTask<{ locations: Location.LocationObject[] }>(BACKGROUND_TASK, async ({ data, error }) => {
   if (error || !data?.locations?.length || store.demoActive) return;
-  await ingestFixes(data.locations.map(toFix));
+  const fixes = data.locations.map(toFix);
+  await ingestFixes(fixes);
+  await updateMotion(fixes).catch(() => undefined);
   const latest = data.locations[data.locations.length - 1];
   if (store.ready) store.setPosition(latest.coords);
 });
@@ -121,19 +160,9 @@ export async function startBackgroundTracking(): Promise<boolean> {
       store.setError(t('location.allowAlways'));
       return false;
     }
-    await Location.startLocationUpdatesAsync(BACKGROUND_TASK, {
-      accuracy: Location.Accuracy.High,
-      distanceInterval: 10,
-      // Not "Fitness": that tunes iOS for pedestrians, and driving counts too.
-      activityType: Location.ActivityType.Other,
-      pausesUpdatesAutomatically: true,
-      showsBackgroundLocationIndicator: true,
-      foregroundService: {
-        notificationTitle: t('location.notification.title'),
-        notificationBody: t('location.notification.body'),
-        notificationColor: '#2E7D5B',
-      },
-    });
+    motion = INITIAL_MOTION;
+    await setMeta('motion', motion);
+    await Location.startLocationUpdatesAsync(BACKGROUND_TASK, taskOptions('moving'));
     store.setError(null);
     store.setTracking(store.tracking, true);
     return true;

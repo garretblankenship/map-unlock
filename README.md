@@ -30,6 +30,10 @@ neighbourhood, city, state and country you visit gets a progress score
   water cell by cell. Very large ones (states, countries) use a coarser
   water estimate. Regions are added only by visiting them; there's no
   place search.
+- **Battery.** Background GPS runs at full accuracy while you move and
+  drops to low-power location after ~3 minutes standing still, waking up
+  again once you move ~75 m (`src/core/motion.ts`). Updates never pause on
+  their own, since iOS wouldn't resume them after a rest stop.
 - **Units.** Areas show in km² / m² or mi² / acres, following the phone's
   region (US and UK get imperial). Settings can override it.
 - **Storage and backups.** Everything is stored on the device in SQLite;
@@ -143,7 +147,7 @@ src/
   the tiles yourself; OpenFreeMap publishes weekly full-planet downloads.
 - **Map style URL.** Host `assets/map/style.json` yourself and set
   `MAP_STYLE_URL` (see *Map style* above).
-- **Battery.** Background tracking uses high-accuracy GPS. Consider
-  lowering accuracy, or pausing when the phone is stationary.
+- **Battery.** Measure real-world drain on long hikes with both phones
+  and tune `MOTION_SETTINGS` (`src/core/motion.ts`) if needed.
 - **Store review.** Apple and Google both scrutinize "Always" location
   access. The permission texts are in `app.json`.
