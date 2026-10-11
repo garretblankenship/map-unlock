@@ -30,8 +30,13 @@ neighbourhood, city, state and country you visit gets a progress score
   water cell by cell. Very large ones (states, countries) use a coarser
   water estimate. Regions are added only by visiting them; there's no
   place search.
-- **Storage.** Everything is stored on the device in SQLite. There are no
-  accounts and no servers.
+- **Storage and backups.** Everything is stored on the device in SQLite;
+  there are no accounts and no servers. Progress (unlocked cells, regions)
+  is in its own small database that the phone's normal iCloud / Google
+  backup includes, so it comes back on a new phone restored from backup.
+  Re-downloadable data (water cache, saved offline maps) is left out of
+  Android backups, which stop working past 25 MB
+  (`plugins/with-backup-rules.js`).
 - **No signal? Keep exploring.** GPS works without a connection, and
   unlocking is saved straight to the device, so hikes in the mountains or
   deep woods count in full. Places you pass through without signal (or

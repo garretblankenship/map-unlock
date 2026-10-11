@@ -47,7 +47,8 @@
             "en"
           ]
         }
-      ]
+      ],
+      "./plugins/with-backup-rules"
     ]
   }
 }

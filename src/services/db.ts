@@ -5,18 +5,55 @@ import type { RegionRecord } from '../core/regions';
 import type { LatLng } from '../core/tiles';
 
 /**
- * Local persistence. Everything stays on the device:
+ * Local persistence. Everything stays on the device, in two databases:
+ *
+ * PROGRESS_DB, the player's progress. It's included in the phone's backups
+ * (iCloud, and Google via plugins/with-backup-rules.js), so keep it small:
  *  - cells:   every unlocked base-zoom cell
- *  - regions: boundaries the user has discovered or added
- *  - water:   cached water masks per map tile (see core/water.ts)
+ *  - regions: boundaries the user has discovered
  *  - meta:    small key/value state (last GPS fix, places to look up, settings)
+ *
+ * CACHE_DB, data that can be downloaded again, left out of Android backups
+ * (whose 25 MB limit would otherwise be at risk):
+ *  - water:   cached water masks per map tile (see core/water.ts)
  */
+export const PROGRESS_DB = 'mapunlock.db';
+export const CACHE_DB = 'cache.db';
 
 let db: SQLite.SQLiteDatabase | null = null;
+let cacheDb: SQLite.SQLiteDatabase | null = null;
+
+export function getCacheDb(): SQLite.SQLiteDatabase {
+  if (cacheDb) return cacheDb;
+  cacheDb = SQLite.openDatabaseSync(CACHE_DB);
+  cacheDb.execSync(`
+    PRAGMA journal_mode = WAL;
+    CREATE TABLE IF NOT EXISTS water (tile TEXT PRIMARY KEY NOT NULL, mask BLOB, fetched_at INTEGER NOT NULL);
+  `);
+  return cacheDb;
+}
+
+/** Earlier versions kept the water cache in the progress database; move it out. */
+function moveWaterToCache(progress: SQLite.SQLiteDatabase) {
+  const old = progress.getFirstSync<{ n: number }>(
+    "SELECT count(*) AS n FROM sqlite_master WHERE type = 'table' AND name = 'water'",
+  );
+  if (!old?.n) return;
+  const cache = getCacheDb();
+  const rows = progress.getAllSync<{ tile: string; mask: Uint8Array | null; fetched_at: number }>(
+    'SELECT tile, mask, fetched_at FROM water',
+  );
+  cache.withTransactionSync(() => {
+    for (const r of rows) {
+      cache.runSync('INSERT OR IGNORE INTO water (tile, mask, fetched_at) VALUES (?, ?, ?)', r.tile, r.mask, r.fetched_at);
+    }
+  });
+  progress.execSync('DROP TABLE water; VACUUM;');
+}
 
 export function getDb(): SQLite.SQLiteDatabase {
   if (db) return db;
-  db = SQLite.openDatabaseSync('mapunlock.db');
+  db = SQLite.openDatabaseSync(PROGRESS_DB);
   db.execSync(`
     PRAGMA journal_mode = WAL;
     CREATE TABLE IF NOT EXISTS cells (key INTEGER PRIMARY KEY NOT NULL, unlocked_at INTEGER NOT NULL);
@@ -28,9 +65,9 @@ export function getDb(): SQLite.SQLiteDatabase {
       geometry TEXT NOT NULL,
       created_at INTEGER NOT NULL
     );
-    CREATE TABLE IF NOT EXISTS water (tile TEXT PRIMARY KEY NOT NULL, mask BLOB, fetched_at INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY NOT NULL, v TEXT NOT NULL);
   `);
+  moveWaterToCache(db);
   return db;
 }
 
@@ -96,13 +133,19 @@ export async function deleteRegion(id: string): Promise<void> {
 }
 
 /** Cached water mask for a tile: undefined if never fetched, null if all land. */
+/** The water cache, after any move out of the progress database has happened. */
+function waterDb(): SQLite.SQLiteDatabase {
+  getDb();
+  return getCacheDb();
+}
+
 export async function loadWaterMask(tile: string): Promise<Uint8Array | null | undefined> {
-  const row = await getDb().getFirstAsync<{ mask: Uint8Array | null }>('SELECT mask FROM water WHERE tile = ?', tile);
+  const row = await waterDb().getFirstAsync<{ mask: Uint8Array | null }>('SELECT mask FROM water WHERE tile = ?', tile);
   return row ? row.mask : undefined;
 }
 
 export async function saveWaterMask(tile: string, mask: Uint8Array | null): Promise<void> {
-  await getDb().runAsync(
+  await waterDb().runAsync(
     'INSERT OR REPLACE INTO water (tile, mask, fetched_at) VALUES (?, ?, ?)',
     tile,
     mask,
