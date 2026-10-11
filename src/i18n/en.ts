@@ -115,6 +115,10 @@ export const en = {
   'settings.units.imperialDetail': 'Miles, acres, mi²',
   'settings.progress': 'Progress',
   'settings.attribution': 'Map data',
+  'settings.about': 'About',
+  'settings.privacy': 'Privacy policy',
+  'settings.terms': 'Terms of use',
+  'settings.support': 'Help & support',
 
   // Offline screen
   'offline.title': 'Offline maps',

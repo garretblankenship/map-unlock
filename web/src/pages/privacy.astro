@@ -1,0 +1,96 @@
+---
+import Base from '../layouts/Base.astro';
+import { site } from '../site';
+---
+
+<Base title="Privacy policy" description="How Open World Life handles your location and data: it all stays on your phone.">
+  <article class="wrap prose">
+    <h1>Privacy policy</h1>
+    <p class="updated">Last updated: {site.policiesUpdated}</p>
+
+    <div class="callout">
+      <strong>In short:</strong> your location and your progress stay on your phone. There are no accounts, no analytics,
+      no ads and no tracking, and we never receive a record of where you’ve been.
+    </div>
+
+    <p>
+      {site.name} (“the app”) is a game that clears a fog from the map as you explore the real world. This policy
+      explains what the app does with information, and is published by {site.publisher} (“we”).
+    </p>
+
+    <h2>What stays on your phone</h2>
+    <ul>
+      <li>
+        <strong>Your location.</strong> The app uses your phone’s location to work out which parts of the map you’ve
+        visited. Location is processed on your phone only. It is never sent to us, and we keep no record of where you have
+        been.
+      </li>
+      <li>
+        <strong>Your progress.</strong> The areas you’ve unlocked, the regions you’ve visited and your settings are stored
+        on your phone.
+      </li>
+    </ul>
+    <p>
+      If your phone’s own backup is turned on (iCloud on iPhone, Google backup on Android), your progress is included in
+      that backup so it can be restored on a new phone. Those backups are handled by Apple or Google under their privacy
+      terms; we cannot access them.
+    </p>
+
+    <h2>What the app downloads</h2>
+    <p>
+      To show the map and the regions you explore, the app downloads public map data from the services below. As with any
+      website, they receive your device’s IP address and which part of the map is being requested, which is needed to
+      send the right data. They do not receive your location history, and we send them no information about you.
+    </p>
+    <ul>
+      <li>
+        <strong>OpenFreeMap</strong> (tiles.openfreemap.org): map images and map data, including lakes and rivers. See{' '}
+        <a href="https://openfreemap.org">openfreemap.org</a>.
+      </li>
+      <li>
+        <strong>Our content delivery network</strong> (Amazon CloudFront, operated for us by Amazon Web Services): region
+        boundaries and the map style. Like any web server it keeps standard request logs for operating the service; we do
+        not use them to identify or track anyone.
+      </li>
+    </ul>
+    <p>Map data © OpenStreetMap contributors.</p>
+
+    <h2>What we don’t do</h2>
+    <ul>
+      <li>No accounts, sign-in or profiles.</li>
+      <li>No analytics, advertising, tracking or data brokers.</li>
+      <li>No selling or sharing of personal information.</li>
+    </ul>
+
+    <h2>Sharing your progress</h2>
+    <p>
+      If you choose to share your progress, the app makes an image with a region’s outline, its name and your percentage,
+      and hands it to your phone’s share sheet. It never includes the streets you’ve explored. Where it goes after that is
+      up to you.
+    </p>
+
+    <h2>Permissions</h2>
+    <ul>
+      <li><strong>Location while using the app:</strong> to clear the fog where you are.</li>
+      <li>
+        <strong>Location always (optional):</strong> to keep clearing the fog while your phone is in your pocket. Turn it
+        off any time in the app or in your phone’s settings.
+      </li>
+    </ul>
+
+    <h2>Deleting your data</h2>
+    <p>
+      Everything is on your phone. Use <strong>Settings → Reset all progress</strong> in the app, or delete the app, to
+      remove it. Remove old phone backups through iCloud or Google if you want those gone too.
+    </p>
+
+    <h2>Children</h2>
+    <p>The app does not collect personal information from anyone, including children.</p>
+
+    <h2>Changes</h2>
+    <p>If this policy changes, we’ll update this page and the date above.</p>
+
+    <h2>Contact</h2>
+    <p>{site.publisher}, <a href={`mailto:${site.supportEmail}`}>{site.supportEmail}</a></p>
+  </article>
+</Base>

@@ -1,0 +1,111 @@
+---
+import '../styles.css';
+import { site } from '../site';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+const { title, description = site.description } = Astro.props;
+const pageTitle = title ? `${title} · ${site.name}` : `${site.name}: ${site.tagline}`;
+const year = new Date().getFullYear();
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#123B2C" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrap bar">
+        <a class="brand" href="/">
+          <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true">
+            <rect width="32" height="32" rx="8" fill="#123B2C"></rect>
+            <path d="M7 24c3-6 6-3 9-9s6-4 9-8" fill="none" stroke="#4CC38A" stroke-width="3.5" stroke-linecap="round"></path>
+          </svg>
+          {site.name}
+        </a>
+        <nav aria-label="Main">
+          <a href="/support/">Support</a>
+          <a href="/privacy/">Privacy</a>
+          <a href="/terms/">Terms</a>
+        </nav>
+      </div>
+    </header>
+    <main>
+      <slot />
+    </main>
+    <footer class="site-footer">
+      <div class="wrap">
+        <p>
+          <a href="/support/">Support</a> · <a href="/privacy/">Privacy policy</a> · <a href="/terms/">Terms of use</a>
+        </p>
+        <p class="small">
+          Map data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>. Map tiles by{' '}
+          <a href="https://openfreemap.org">OpenFreeMap</a>, <a href="https://www.openmaptiles.org/">© OpenMapTiles</a>.
+        </p>
+        <p class="small">© {year} {site.publisher}</p>
+      </div>
+    </footer>
+  </body>
+</html>
+
+<style>
+  .site-header {
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 60px;
+    flex-wrap: wrap;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    color: var(--text);
+    text-decoration: none;
+  }
+  nav {
+    display: flex;
+    gap: 18px;
+  }
+  nav a {
+    color: var(--muted);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 15px;
+  }
+  nav a:hover {
+    color: var(--text);
+  }
+  .site-footer {
+    margin-top: 64px;
+    padding: 28px 0 40px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 15px;
+  }
+  .site-footer p {
+    margin: 6px 0;
+  }
+  .site-footer a {
+    color: var(--muted);
+  }
+  .small {
+    font-size: 13px;
+  }
+</style>

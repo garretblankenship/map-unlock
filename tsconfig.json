@@ -5,6 +5,6 @@
     // Only the type packages the app imports; no Node.js globals in app code.
     "types": []
   },
-  // The boundary pipeline runs in Node.js and has its own tsconfig.
-  "exclude": ["pipeline", "node_modules", "babel.config.js", "metro.config.js", "jest.config.js", "android", "ios"]
+  // The boundary pipeline (Node.js) and the website (web/) have their own tsconfigs.
+  "exclude": ["pipeline", "web", "node_modules", "babel.config.js", "metro.config.js", "jest.config.js", "android", "ios"]
 }

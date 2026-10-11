@@ -1,0 +1,34 @@
+# Amplify Hosting build for the website and its Gen 2 backend, which live in
+# web/ (this repository's root is the Expo app). When creating the Amplify
+# app, choose "My app is a monorepo" and enter web as the app root; that sets
+# AMPLIFY_MONOREPO_APP_ROOT=web, which must match appRoot below.
+version: 1
+applications:
+  - appRoot: web
+    backend:
+      phases:
+        build:
+          commands:
+            # Astro 7 needs Node.js 22.12+.
+            - nvm install 22
+            - nvm use 22
+            # npm install (still pinned by package-lock.json) rather than npm ci:
+            # @aws-amplify/data-construct bundles a package whose own dependency
+            # isn't bundled, which npm ci rejects as an out-of-sync lockfile.
+            - npm install --cache .npm --prefer-offline --no-audit --no-fund
+            # Deploys amplify/backend.ts: the map-data CDN (S3 + CloudFront).
+            - npx ampx pipeline-deploy --branch $AWS_BRANCH --app-id $AWS_APP_ID
+    frontend:
+      phases:
+        build:
+          commands:
+            - nvm use 22
+            - npm run build
+      artifacts:
+        baseDirectory: dist
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - .npm/**/*
+          - node_modules/**/*

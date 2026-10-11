@@ -1,11 +1,13 @@
 # Launch checklist
 
-## Infrastructure
+## Infrastructure (AWS, see `web/README.md`)
 
+- [ ] Deploy `web/` as an Amplify Gen 2 app (monorepo root `web`): the
+      website plus the map-data CDN (S3 + CloudFront).
 - [ ] Run the boundary pipeline on the planet (`pipeline/README.md`) and
-      upload the output to a static host or CDN with gzip.
-- [ ] Host `assets/map/style.json` yourself and set `MAP_STYLE_URL`.
-- [ ] Set `BOUNDARIES_URL` (production EAS builds refuse to build without it).
+      publish it with `web/scripts/upload-map-data.sh`.
+- [ ] Set `BOUNDARIES_URL`, `MAP_STYLE_URL` and `WEBSITE_URL` in `eas.json`
+      (production builds refuse to build without them).
 - [ ] Consider donating to OpenFreeMap, which serves the map tiles for free.
 
 ## Before the first store build
@@ -18,8 +20,9 @@
       keep it and test on iPad.
 - [ ] Set the version (`app.json` → `version`); EAS auto-increments build
       numbers for production (`eas.json`).
-- [ ] Publish the privacy policy (`privacy-policy.md`, fill in the
-      placeholders) at a public URL, plus a support URL or email.
+- [ ] Fill in `web/src/site.ts` (publisher, support email, governing law,
+      date). The privacy policy, terms and support pages are on the website;
+      use `WEBSITE_URL/privacy/` and `WEBSITE_URL/support/` in both stores.
 - [ ] Device testing on real iPhone and Android: a hike with no signal, a
       saved offline area, background exploring with the screen off,
       battery over a long day, dark mode, the share sheet.

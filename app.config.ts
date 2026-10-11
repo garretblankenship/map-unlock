@@ -11,12 +11,19 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
  * hosted (the folder holding meta.json). Required before launch; until it's
  * set, the app falls back to the public OpenStreetMap lookup service, which
  * is only acceptable for development.
+ *
+ * WEBSITE_URL: the website in web/ (Amplify Hosting), for the privacy
+ * policy, terms and support links in Settings.
+ *
+ * All three are published by web/ (see web/README.md); store builds need them.
  */
 export default ({ config }: ConfigContext): ExpoConfig => {
-  // Store builds must use the hosted boundary files: the fallback lookup
-  // service doesn't allow app traffic. EAS sets EAS_BUILD_PROFILE when building.
-  if (process.env.EAS_BUILD_PROFILE === 'production' && !process.env.BOUNDARIES_URL) {
-    throw new Error('Set BOUNDARIES_URL for production builds (see pipeline/README.md).');
+  // Store builds must use our own hosting: the fallback lookup service
+  // doesn't allow app traffic, and the stores require a privacy policy link.
+  // EAS sets EAS_BUILD_PROFILE when building.
+  if (process.env.EAS_BUILD_PROFILE === 'production') {
+    const missing = ['BOUNDARIES_URL', 'MAP_STYLE_URL', 'WEBSITE_URL'].filter((k) => !process.env[k]);
+    if (missing.length) throw new Error(`Set ${missing.join(', ')} for production builds (see web/README.md).`);
   }
   return withExtras(config);
 };
@@ -27,5 +34,6 @@ const withExtras = (config: ConfigContext['config']): ExpoConfig => ({
     ...config.extra,
     mapStyleUrl: process.env.MAP_STYLE_URL,
     boundariesUrl: process.env.BOUNDARIES_URL,
+    websiteUrl: process.env.WEBSITE_URL,
   },
 });

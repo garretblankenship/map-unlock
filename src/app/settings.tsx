@@ -1,12 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
+import * as WebBrowser from 'expo-web-browser';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { UnitPreference } from '../core/units';
-import { t } from '../i18n';
+import { TextKey, t } from '../i18n';
 import { useStore } from '../state/store';
 import { makeStyles, useColors } from '../theme';
 
 const UNIT_OPTIONS: UnitPreference[] = ['auto', 'metric', 'imperial'];
+
+/** The website (web/), set with WEBSITE_URL when building. */
+const WEBSITE_URL = ((Constants.expoConfig?.extra?.websiteUrl as string | undefined) ?? '').replace(/\/+$/, '');
+const WEBSITE_PAGES: [TextKey, string][] = [
+  ['settings.support', '/support/'],
+  ['settings.privacy', '/privacy/'],
+  ['settings.terms', '/terms/'],
+];
 
 export default function SettingsScreen() {
   const colors = useColors();
@@ -62,6 +72,25 @@ export default function SettingsScreen() {
           <Text style={[styles.optionTitle, { color: colors.danger }]}>{t('regions.reset')}</Text>
         </Pressable>
       </View>
+
+      {WEBSITE_URL ? (
+        <>
+          <Text style={styles.sectionTitle}>{t('settings.about')}</Text>
+          <View style={styles.group}>
+            {WEBSITE_PAGES.map(([label, path], i) => (
+              <Pressable
+                key={path}
+                style={[styles.option, i > 0 && styles.optionDivider]}
+                onPress={() => void WebBrowser.openBrowserAsync(WEBSITE_URL + path)}
+                accessibilityRole="link"
+              >
+                <Text style={[styles.optionTitle, { flex: 1 }]}>{t(label)}</Text>
+                <Ionicons name="open-outline" size={18} color={colors.muted} />
+              </Pressable>
+            ))}
+          </View>
+        </>
+      ) : null}
 
       <Text style={styles.sectionTitle}>{t('settings.attribution')}</Text>
       <Text style={styles.attribution}>{t('regions.attribution')}</Text>

@@ -1,0 +1,73 @@
+---
+import Base from '../layouts/Base.astro';
+import { site } from '../site';
+
+const faqs: [string, string][] = [
+  [
+    'How does unlocking work?',
+    'Everything within 50 m of where you go is unlocked, whether you walk, hike, cycle, drive or ride the train. Very fast travel (planes) and inaccurate GPS readings don’t count.',
+  ],
+  [
+    'Why does the app ask for “Always” location?',
+    'Only if you turn on background exploring, which keeps clearing the fog while your phone is in your pocket. Without it, the map unlocks only while the app is open. Your location never leaves your phone either way.',
+  ],
+  [
+    'Will it drain my battery?',
+    'Background exploring uses GPS while you’re moving and eases off when you stay in one place for a few minutes. On long days out, a power bank is still a good idea.',
+  ],
+  [
+    'Does it work without signal?',
+    'Yes. Unlocking always works offline. To have the map, lakes and rivers, and region boundaries with you, open the map on the area before you go and tap the download button, or long-press a region and choose “Save for offline use”. Saved areas are in the Offline tab.',
+  ],
+  [
+    'Why doesn’t a lake count towards my percentage?',
+    'Percentages are for land only, so 100% is reachable on foot. Water is shown unfogged instead.',
+  ],
+  [
+    'How do I move my progress to a new phone?',
+    'Progress is included in your phone’s iCloud or Google backup. Restore the new phone from that backup and your progress comes with it.',
+  ],
+  [
+    'A boundary or place name looks wrong.',
+    'Region boundaries come from OpenStreetMap, which anyone can improve at openstreetmap.org. Fixes reach the app with the next data update.',
+  ],
+  [
+    'How do I start over?',
+    'In the app, go to Regions, tap the gear icon, then Reset all progress. This can’t be undone.',
+  ],
+  [
+    'How do I get a refund?',
+    'Refunds are handled by Apple (reportaproblem.apple.com) or Google Play (play.google.com, under Order history).',
+  ],
+];
+---
+
+<Base title="Support" description="Help with Open World Life: background exploring, offline maps, battery, backups and more.">
+  <article class="wrap prose">
+    <h1>Support</h1>
+    <p>
+      Questions, problems or ideas? Email <a href={`mailto:${site.supportEmail}`}>{site.supportEmail}</a> and we’ll get
+      back to you.
+    </p>
+    <h2>Frequently asked questions</h2>
+    {
+      faqs.map(([q, a]) => (
+        <section class="faq">
+          <h3>{q}</h3>
+          <p>{a}</p>
+        </section>
+      ))
+    }
+  </article>
+</Base>
+
+<style>
+  .faq {
+    border-top: 1px solid var(--border);
+    padding-top: 4px;
+  }
+  .faq p {
+    margin-top: 4px;
+    color: var(--muted);
+  }
+</style>

@@ -1,0 +1,48 @@
+---
+/** Illustration: a map under fog, cleared along a winding trail and around a lake. */
+---
+
+<svg class="fogmap" viewBox="0 0 320 400" role="img" aria-label="A map covered in fog, with a cleared trail where someone has explored">
+  <defs>
+    <mask id="cleared">
+      <rect width="320" height="400" fill="white"></rect>
+      <path
+        d="M30 370 C 70 330, 60 290, 110 270 S 190 250, 180 200 S 120 140, 170 110 S 260 90, 285 40"
+        fill="none"
+        stroke="black"
+        stroke-width="34"
+        stroke-linecap="round"></path>
+      <circle cx="180" cy="200" r="38" fill="black"></circle>
+      <ellipse cx="245" cy="300" rx="48" ry="30" fill="black"></ellipse>
+    </mask>
+  </defs>
+  <rect width="320" height="400" rx="28" fill="#E8EFE4"></rect>
+  <g stroke="#FFFFFF" stroke-width="7" fill="none" stroke-linecap="round">
+    <path d="M0 120 H320"></path>
+    <path d="M0 260 C 80 250, 160 280, 320 240"></path>
+    <path d="M90 0 V400"></path>
+    <path d="M210 0 C 200 120, 230 260, 200 400"></path>
+  </g>
+  <path d="M40 20 h60 v70 h-60z M240 140 h55 v60 h-55z" fill="#CFE3C4"></path>
+  <ellipse cx="245" cy="300" rx="48" ry="30" fill="#A9D3EE"></ellipse>
+  <rect width="320" height="400" rx="28" fill="#5B6372" fill-opacity="0.82" mask="url(#cleared)"></rect>
+  <path
+    d="M30 370 C 70 330, 60 290, 110 270 S 190 250, 180 200 S 120 140, 170 110 S 260 90, 285 40"
+    fill="none"
+    stroke="#2E7D5B"
+    stroke-width="3"
+    stroke-dasharray="2 8"
+    stroke-linecap="round"></path>
+  <circle cx="285" cy="40" r="9" fill="#2E7D5B" stroke="#FFFFFF" stroke-width="3"></circle>
+</svg>
+
+<style>
+  .fogmap {
+    width: 100%;
+    max-width: 320px;
+    height: auto;
+    display: block;
+    border-radius: 28px;
+    box-shadow: 0 20px 50px rgba(18, 59, 44, 0.25);
+  }
+</style>

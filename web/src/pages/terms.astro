@@ -1,0 +1,90 @@
+---
+import Base from '../layouts/Base.astro';
+import { site } from '../site';
+---
+
+<Base title="Terms of use" description="The terms for using Open World Life, including exploring safely.">
+  <article class="wrap prose">
+    <h1>Terms of use</h1>
+    <p class="updated">Last updated: {site.policiesUpdated}</p>
+
+    <p>
+      These terms apply to your use of the {site.name} app and this website, which are provided by {site.publisher}{' '}
+      (“we”). By using the app you agree to them. If you got the app from Apple’s App Store, Apple’s{' '}
+      <a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/">Standard End User License Agreement</a>{' '}
+      also applies; if you got it from Google Play, Google Play’s terms also apply.
+    </p>
+
+    <h2>1. Explore safely</h2>
+    <div class="callout">
+      The app is a game, not a navigation or safety tool. Your safety is your responsibility.
+    </div>
+    <ul>
+      <li>Pay attention to your surroundings, not your screen.</li>
+      <li>Don’t use the app while driving or cycling. If you’re in a vehicle, let a passenger handle the phone.</li>
+      <li>
+        Unlocking the map is never a reason to go somewhere you shouldn’t. Respect private property, closures, local laws
+        and the rules of parks and protected areas.
+      </li>
+      <li>
+        In the backcountry, carry proper navigation and safety equipment, check the conditions, and tell someone your
+        plans. Don’t rely on the app or your phone’s battery.
+      </li>
+      <li>
+        Map data, boundaries and water areas come from OpenStreetMap and may be incomplete, inaccurate or out of date.
+      </li>
+    </ul>
+
+    <h2>2. Your licence to use the app</h2>
+    <p>
+      When you buy the app, you get a personal, non-transferable licence to use it on devices you own or control, under
+      the rules of the store you bought it from. Please don’t copy, resell, reverse engineer or misuse the app or the
+      services it relies on, except where the law allows it.
+    </p>
+
+    <h2>3. Purchases and refunds</h2>
+    <p>
+      The app is sold through the App Store and Google Play. Payments and refunds are handled by Apple or Google under
+      their policies; we can’t process refunds ourselves.
+    </p>
+
+    <h2>4. Your data</h2>
+    <p>
+      Your location and progress stay on your phone. See the <a href="/privacy/">privacy policy</a> for details. You’re
+      responsible for your phone’s backups; if progress is lost with a phone that wasn’t backed up, we can’t recover it.
+    </p>
+
+    <h2>5. Map data and third-party services</h2>
+    <p>
+      Map data is © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>, available under the
+      Open Database License. Map tiles are provided by <a href="https://openfreemap.org">OpenFreeMap</a>. These services
+      are run by third parties and may change or be unavailable at times.
+    </p>
+
+    <h2>6. Changes to the app</h2>
+    <p>We may update, change or discontinue features of the app from time to time.</p>
+
+    <h2>7. No warranty</h2>
+    <p>
+      The app is provided “as is” and “as available”, without warranties of any kind, including that it will be accurate,
+      uninterrupted or error-free, to the extent the law allows.
+    </p>
+
+    <h2>8. Limitation of liability</h2>
+    <p>
+      To the extent the law allows, we are not liable for any indirect, incidental or consequential damages, or for any
+      injury, loss or damage arising from your activities while using the app. Our total liability is limited to the
+      amount you paid for the app. Nothing in these terms limits rights you have under consumer protection laws that
+      can’t be limited.
+    </p>
+
+    <h2>9. Changes to these terms</h2>
+    <p>If these terms change, we’ll update this page and the date above. Continuing to use the app means you accept them.</p>
+
+    <h2>10. Governing law</h2>
+    <p>These terms are governed by the laws of {site.governingLaw}, except where your local law says otherwise.</p>
+
+    <h2>11. Contact</h2>
+    <p>{site.publisher}, <a href={`mailto:${site.supportEmail}`}>{site.supportEmail}</a></p>
+  </article>
+</Base>

@@ -21,6 +21,7 @@
     "expo-status-bar": "~57.0.1",
     "expo-system-ui": "~57.0.4",
     "expo-task-manager": "~57.0.21",
+    "expo-web-browser": "~57.0.3",
     "pako": "^2.1.0",
     "pbf": "^5.1.2",
     "react": "19.2.3",

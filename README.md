@@ -132,7 +132,9 @@ src/
 
 ## Launch
 
-Store listing drafts, a privacy policy draft and the full launch checklist
+The website (privacy policy, terms, support) and the map-data CDN are an
+AWS Amplify Gen 2 app in `web/` (see `web/README.md`). Store listing drafts
+and the full launch checklist
 (store privacy questionnaires, location permission reviews, paid-app setup)
 are in `docs/launch/`.
 
