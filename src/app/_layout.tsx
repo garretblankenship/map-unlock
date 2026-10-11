@@ -78,6 +78,7 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerTintColor: (dark ? darkColors : lightColors).accent }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="background-permission" options={{ presentation: 'modal', headerShown: false }} />
+        <Stack.Screen name="share" options={{ presentation: 'modal', title: t('share.title') }} />
         <Stack.Screen name="settings" options={{ title: t('settings.title'), headerBackTitle: t('regions.title') }} />
       </Stack>
     </ThemeProvider>

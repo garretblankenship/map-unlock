@@ -85,6 +85,18 @@ export const en = {
     `Roughly ${p.size} (less in the countryside, more in cities). Wi-Fi recommended.`,
   'regions.attribution': 'Boundaries and water © OpenStreetMap contributors · water tiles by OpenFreeMap / OpenMapTiles',
 
+  // Share card
+  'share.title': 'Share progress',
+  'share.unlocked': 'of land unlocked',
+  'share.app': 'Open World Life',
+  'share.privacy': 'Only the outline and your percentage are shared, never the streets you’ve explored.',
+  'share.button': 'Share',
+  'share.failed': 'Couldn’t share',
+  'share.unavailable': 'Sharing isn’t available on this device.',
+  'share.dialogTitle': (p: { name: string }) => `${p.name} progress`,
+  'share.a11y.open': 'Share progress',
+  'regions.action.share': 'Share progress',
+
   // Settings screen
   'settings.title': 'Settings',
   'settings.a11y.open': 'Settings',

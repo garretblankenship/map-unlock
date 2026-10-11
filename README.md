@@ -38,6 +38,10 @@ neighbourhood, city, state and country you visit gets a progress score
   setting (`src/theme.ts`, `assets/map/style-dark.json`). The dark map uses
   the same tiles, icons and fonts as the light one, so saved offline areas
   work in both.
+- **Sharing.** The share button (on the map card, or long-press a region)
+  makes an image card with the region's outline, name and percentage, and
+  opens the share sheet. The explored streets are never included, so a
+  shared card can't reveal where someone lives.
 - **Units.** Areas show in km² / m² or mi² / acres, following the phone's
   region (US and UK get imperial). Settings can override it.
 - **Storage and backups.** Everything is stored on the device in SQLite;
@@ -130,6 +134,7 @@ src/
     mapgeo.ts       fog/outlines → GeoJSON for the map, download sizing
     pending.ts      places waiting for a boundary lookup (offline queue)
     units.ts        metric / imperial formatting
+    shareCard.ts    region outline → SVG path for share cards
   services/
     tracking.ts     foreground + background location (expo-location)
     boundaries.ts   OpenStreetMap/Nominatim boundary lookup

@@ -178,6 +178,15 @@ export default function MapScreen() {
                 </Text>
               </View>
               <Text style={styles.cardPercent}>{stats.percent}</Text>
+              <Pressable
+                onPress={() => router.push({ pathname: '/share', params: { id: region.id } })}
+                accessibilityRole="button"
+                accessibilityLabel={t('share.a11y.open')}
+                hitSlop={10}
+                style={styles.cardShare}
+              >
+                <Ionicons name="share-outline" size={20} color={colors.accent} />
+              </Pressable>
             </View>
             <ProgressBar value={stats.fraction} />
             <Text style={styles.cardSub}>
@@ -265,6 +274,7 @@ const useStyles = makeStyles((colors) => ({
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   cardKicker: { fontSize: 11, fontWeight: '700', color: colors.accent, letterSpacing: 0.6 },
   cardTitle: { fontSize: 20, fontWeight: '700', color: colors.text },
+  cardShare: { marginLeft: 4 },
   cardPercent: { fontSize: 26, fontWeight: '800', color: colors.accent, fontVariant: ['tabular-nums'] },
   cardSub: { fontSize: 13, color: colors.muted, flexShrink: 1 },
   error: {

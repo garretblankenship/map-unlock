@@ -61,6 +61,7 @@ export default function RegionsScreen() {
 
   const regionActions = (r: Region) =>
     Alert.alert(r.name, undefined, [
+      { text: t('regions.action.share'), onPress: () => router.push({ pathname: '/share', params: { id: r.id } }) },
       { text: t('regions.action.saveOffline'), onPress: () => saveOffline(r) },
       { text: t('regions.action.remove'), style: 'destructive', onPress: () => confirmRemove(r) },
       { text: t('action.cancel'), style: 'cancel' },
