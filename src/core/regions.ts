@@ -6,13 +6,6 @@ import { MASK_BITS, TileRange, WATER_TILE_MAX_ZOOM, WaterLookup, isWaterCell, ti
 export const REGION_LEVELS = ['neighbourhood', 'city', 'state', 'country'] as const;
 export type RegionLevel = (typeof REGION_LEVELS)[number];
 
-export const LEVEL_LABELS: Record<RegionLevel, string> = {
-  neighbourhood: 'Neighbourhoods',
-  city: 'Cities',
-  state: 'States & provinces',
-  country: 'Countries',
-};
-
 export type RegionRecord = {
   /** Stable OpenStreetMap id, e.g. "R5750005". */
   id: string;

@@ -18,7 +18,7 @@ import { regionStats } from '../components/regionStats';
 import { Viewport } from '../core/fog';
 import { shapeBoundsLatLng, shapeOutlines } from '../core/geometry';
 import { Bounds, estimateDownload, fogToGeoJSON, formatBytes, linesToGeoJSON, viewportFromBounds } from '../core/mapgeo';
-import { LEVEL_LABELS } from '../core/regions';
+import { t } from '../i18n';
 import { startDemoWalk, stopDemoWalk } from '../services/demo';
 import { MAP_STYLE } from '../services/mapStyle';
 import { offlineAreas } from '../services/offlineAreas';
@@ -85,23 +85,23 @@ export default function MapScreen() {
     const bounds: Bounds = [viewport.west, viewport.south, viewport.east, viewport.north];
     const estimate = estimateDownload(bounds);
     if (estimate.tooBig) {
-      Alert.alert('Area too big', 'Zoom in on the place you’re heading to, then save it.');
+      Alert.alert(t('map.areaTooBig.title'), t('map.areaTooBig.body'));
       return;
     }
     const center = { latitude: (viewport.north + viewport.south) / 2, longitude: (viewport.east + viewport.west) / 2 };
-    const name = store.regionsAt(center)[0]?.name ?? `Area at ${center.latitude.toFixed(3)}, ${center.longitude.toFixed(3)}`;
+    const name = store.regionsAt(center)[0]?.name ??
+      t('map.areaName', { lat: center.latitude.toFixed(3), lon: center.longitude.toFixed(3) });
     Alert.alert(
-      'Save this area for offline use?',
-      `Saves the map, water and boundaries for what’s on screen, so it works without signal. ` +
-        `Roughly ${formatBytes(estimate.bytes)} (less in the countryside, more in cities). Wi-Fi recommended.`,
+      t('map.saveArea.title'),
+      t('map.saveArea.body', { size: formatBytes(estimate.bytes) }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('action.cancel'), style: 'cancel' },
         {
-          text: 'Save',
+          text: t('action.save'),
           onPress: () =>
             offlineAreas.save(name, bounds).then(
               () => router.navigate('/offline'),
-              (e) => Alert.alert('Couldn’t save this area', e instanceof Error ? e.message : String(e)),
+              (e) => Alert.alert(t('save.failed'), e instanceof Error ? e.message : String(e)),
             ),
         },
       ],
@@ -159,7 +159,7 @@ export default function MapScreen() {
           <>
             <View style={styles.cardHeader}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.cardKicker}>{LEVEL_LABELS[region.level].toUpperCase()}</Text>
+                <Text style={styles.cardKicker}>{t(`level.${region.level}`).toUpperCase()}</Text>
                 <Text style={styles.cardTitle} numberOfLines={1}>
                   {region.name}
                 </Text>
@@ -168,8 +168,9 @@ export default function MapScreen() {
             </View>
             <ProgressBar value={stats.fraction} />
             <Text style={styles.cardSub}>
-              {stats.explored} of {stats.total} of land unlocked
-              {stats.landPending ? ' (measuring water…)' : ''} · tap to change region
+              {t('progress.landUnlocked', { explored: stats.explored, total: stats.total })}
+              {stats.landPending ? t('progress.measuringWater') : ''}
+              {t('map.tapToChange')}
             </Text>
           </>
         ) : (
@@ -177,12 +178,12 @@ export default function MapScreen() {
             {store.discovering ? <ActivityIndicator color={colors.accent} /> : null}
             <Text style={styles.cardSub}>
               {store.discovering
-                ? 'Finding the areas around you…'
+                ? t('map.finding')
                 : store.offline && store.position
-                  ? 'No signal — exploring still counts. Areas are looked up once you’re back online.'
+                  ? t('map.noSignal')
                   : store.position
-                  ? 'No regions yet — tap to search for a city to unlock.'
-                  : 'Waiting for your location…'}
+                    ? t('map.noRegions')
+                    : t('map.waitingForLocation')}
             </Text>
           </View>
         )}
@@ -198,10 +199,8 @@ export default function MapScreen() {
         <View style={[styles.pill, styles.status]}>
           <Ionicons name="cloud-offline-outline" size={16} color={colors.muted} />
           <Text style={styles.pillText}>
-            {store.offline ? 'Offline · progress is saved' : 'Waiting for a better signal'}
-            {store.pendingPlaces > 0
-              ? ` · ${store.pendingPlaces} ${store.pendingPlaces === 1 ? 'place' : 'places'} to look up`
-              : ''}
+            {store.offline ? t('map.offlineSaved') : t('map.weakSignal')}
+            {store.pendingPlaces > 0 ? t('map.placesToLookUp', { count: store.pendingPlaces }) : ''}
           </Text>
         </View>
       ) : null}
@@ -210,19 +209,19 @@ export default function MapScreen() {
         <Pressable style={styles.pill} onPress={toggleBackground}>
           <View style={[styles.dot, { backgroundColor: store.backgroundTracking ? colors.accent : colors.muted }]} />
           <Text style={styles.pillText}>
-            {store.backgroundTracking ? 'Exploring in background' : 'Background exploring off'}
+            {store.backgroundTracking ? t('map.backgroundOn') : t('map.backgroundOff')}
           </Text>
         </Pressable>
         <View style={{ flex: 1 }} />
         {__DEV__ ? (
-          <Pressable style={styles.round} onPress={toggleDemo} accessibilityLabel="Simulate a walk">
+          <Pressable style={styles.round} onPress={toggleDemo} accessibilityLabel={t('map.a11y.demo')}>
             <Ionicons name={demo ? 'stop' : 'walk'} size={22} color={colors.text} />
           </Pressable>
         ) : null}
-        <Pressable style={styles.round} onPress={saveArea} accessibilityLabel="Save this area for offline use">
+        <Pressable style={styles.round} onPress={saveArea} accessibilityLabel={t('map.a11y.saveArea')}>
           <Ionicons name="cloud-download-outline" size={22} color={colors.text} />
         </Pressable>
-        <Pressable style={styles.round} onPress={centerOnMe} accessibilityLabel="Center on my location">
+        <Pressable style={styles.round} onPress={centerOnMe} accessibilityLabel={t('map.a11y.centerOnMe')}>
           <Ionicons name="locate" size={22} color={colors.text} />
         </Pressable>
       </View>

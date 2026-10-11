@@ -39,6 +39,14 @@
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
         }
+      ],
+      [
+        "expo-localization",
+        {
+          "supportedLocales": [
+            "en"
+          ]
+        }
       ]
     ]
   }

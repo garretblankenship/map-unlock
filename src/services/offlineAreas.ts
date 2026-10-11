@@ -15,6 +15,7 @@ import {
   tileRangeForBounds,
 } from '../core/mapgeo';
 import type { LatLng } from '../core/tiles';
+import { t } from '../i18n';
 import { getMeta, setMeta } from './db';
 import { MAP_STYLE_URL } from './mapStyle';
 import { isOnline, onConnectivityChange } from './net';
@@ -97,7 +98,7 @@ class OfflineAreas {
     await OfflineManager.setMaximumAmbientCacheSize(AMBIENT_CACHE_BYTES);
     for (const pack of await OfflineManager.getPacks()) {
       const meta = pack.metadata as Partial<PackMetadata>;
-      const entry = this.track(pack.id, meta.name ?? 'Saved area', pack.bounds, meta.createdAt ?? 0);
+      const entry = this.track(pack.id, meta.name ?? t('offline.defaultName'), pack.bounds, meta.createdAt ?? 0);
       entry.water.complete = (await getMeta<boolean>(waterDoneKey(pack.id))) === true;
       this.applyStatus(entry, await pack.status());
       if (!entry.map.complete) await this.watch(pack, true);
@@ -112,8 +113,8 @@ class OfflineAreas {
   /** Starts saving an area. The download carries on in the background. */
   async save(name: string, bounds: Bounds): Promise<void> {
     await this.start();
-    if (this.unavailable) throw new Error('Offline maps need a development build of the app (not Expo Go).');
-    if (estimateDownload(bounds).tooBig) throw new Error('That area is too big to save. Zoom in and try again.');
+    if (this.unavailable) throw new Error(t('save.needsDevBuild'));
+    if (estimateDownload(bounds).tooBig) throw new Error(t('save.tooBig'));
     const createdAt = Date.now();
     const pack = await OfflineManager.createPack(
       {

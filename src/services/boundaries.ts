@@ -1,5 +1,6 @@
 import { GeoJsonGeometry, isAreaGeometry } from '../core/geometry';
 import { RegionLevel, RegionRecord } from '../core/regions';
+import { t } from '../i18n';
 import { HttpError, fetchWithTimeout } from './net';
 
 /**
@@ -46,7 +47,7 @@ function request<T>(path: string): Promise<T> {
       { headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' } },
       TIMEOUT_MS,
       async (res) => {
-        if (!res.ok) throw new HttpError(`Boundary lookup failed (${res.status})`, res.status);
+        if (!res.ok) throw new HttpError(t('boundaries.lookupFailed', { status: res.status }), res.status);
         return (await res.json()) as T;
       },
     );
@@ -68,7 +69,7 @@ function toRecord(p: NominatimPlace): RegionRecord | null {
   if (!p.osm_type || p.osm_id == null || !isAreaGeometry(p.geojson)) return null;
   return {
     id: `${p.osm_type[0].toUpperCase()}${p.osm_id}`,
-    name: p.name || p.display_name?.split(',')[0] || 'Unnamed area',
+    name: p.name || p.display_name?.split(',')[0] || t('boundaries.unnamed'),
     displayName: p.display_name ?? p.name ?? '',
     level: levelForRank(p.place_rank ?? 30),
     geometry: p.geojson!,

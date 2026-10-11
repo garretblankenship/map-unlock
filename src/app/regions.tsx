@@ -6,7 +6,8 @@ import { ProgressBar } from '../components/ProgressBar';
 import { regionStats } from '../components/regionStats';
 import { estimateDownload, formatBytes } from '../core/mapgeo';
 import { shapeBoundsLatLng } from '../core/geometry';
-import { LEVEL_LABELS, REGION_LEVELS, Region } from '../core/regions';
+import { REGION_LEVELS, Region } from '../core/regions';
+import { t } from '../i18n';
 import { offlineAreas } from '../services/offlineAreas';
 import { useStore } from '../state/store';
 import { colors } from '../theme';
@@ -22,9 +23,9 @@ export default function RegionsScreen() {
   };
 
   const confirmRemove = (r: Region) =>
-    Alert.alert(`Remove ${r.name}?`, 'Your explored areas are kept; only this region’s progress card is removed.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => void store.removeRegion(r.id) },
+    Alert.alert(t('regions.remove.title', { name: r.name }), t('regions.remove.body'), [
+      { text: t('action.cancel'), style: 'cancel' },
+      { text: t('action.remove'), style: 'destructive', onPress: () => void store.removeRegion(r.id) },
     ]);
 
   const saveOffline = (r: Region) => {
@@ -33,22 +34,22 @@ export default function RegionsScreen() {
     const estimate = estimateDownload(bounds);
     if (estimate.tooBig) {
       Alert.alert(
-        `${r.name} is too big to save`,
-        'Save a smaller part instead: zoom the map in on where you’re going and tap the download button.',
+        t('regions.tooBig.title', { name: r.name }),
+        t('regions.tooBig.body'),
       );
       return;
     }
     Alert.alert(
-      `Save ${r.name} for offline use?`,
-      `Roughly ${formatBytes(estimate.bytes)} (less in the countryside, more in cities). Wi-Fi recommended.`,
+      t('regions.save.title', { name: r.name }),
+      t('regions.save.body', { size: formatBytes(estimate.bytes) }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('action.cancel'), style: 'cancel' },
         {
-          text: 'Save',
+          text: t('action.save'),
           onPress: () =>
             offlineAreas.save(r.name, bounds).then(
               () => router.navigate('/offline'),
-              (e) => Alert.alert('Couldn’t save this area', e instanceof Error ? e.message : String(e)),
+              (e) => Alert.alert(t('save.failed'), e instanceof Error ? e.message : String(e)),
             ),
         },
       ],
@@ -57,15 +58,15 @@ export default function RegionsScreen() {
 
   const regionActions = (r: Region) =>
     Alert.alert(r.name, undefined, [
-      { text: 'Save for offline use', onPress: () => saveOffline(r) },
-      { text: 'Remove region', style: 'destructive', onPress: () => confirmRemove(r) },
-      { text: 'Cancel', style: 'cancel' },
+      { text: t('regions.action.saveOffline'), onPress: () => saveOffline(r) },
+      { text: t('regions.action.remove'), style: 'destructive', onPress: () => confirmRemove(r) },
+      { text: t('action.cancel'), style: 'cancel' },
     ]);
 
   const confirmReset = () =>
-    Alert.alert('Reset all progress?', 'This re-fogs the whole map and forgets every region. It can’t be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Reset', style: 'destructive', onPress: () => void store.resetProgress() },
+    Alert.alert(t('regions.reset.title'), t('regions.reset.body'), [
+      { text: t('action.cancel'), style: 'cancel' },
+      { text: t('action.reset'), style: 'destructive', onPress: () => void store.resetProgress() },
     ]);
 
   return (
@@ -73,17 +74,15 @@ export default function RegionsScreen() {
       style={styles.screen}
       contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: 40, paddingHorizontal: 16 }}
     >
-      <Text style={styles.title}>Regions</Text>
-      <Text style={styles.subtitle}>
-        Every area you explore is added here automatically, from neighbourhoods up to countries.
-      </Text>
+      <Text style={styles.title}>{t('regions.title')}</Text>
+      <Text style={styles.subtitle}>{t('regions.subtitle')}</Text>
 
       {REGION_LEVELS.map((level) => {
         const list = store.regions.filter((r) => r.level === level);
         if (list.length === 0) return null;
         return (
           <View key={level} style={styles.section}>
-            <Text style={styles.sectionTitle}>{LEVEL_LABELS[level]}</Text>
+            <Text style={styles.sectionTitle}>{t(`levels.${level}`)}</Text>
             {list.map((r) => {
               const s = regionStats(r);
               const selected = r.id === store.selectedRegionId;
@@ -99,13 +98,14 @@ export default function RegionsScreen() {
                       <Text style={styles.rowTitle} numberOfLines={1}>
                         {r.name}
                       </Text>
-                      {here.has(r.id) ? <Text style={styles.badge}>You are here</Text> : null}
+                      {here.has(r.id) ? <Text style={styles.badge}>{t('regions.youAreHere')}</Text> : null}
                       <View style={{ flex: 1 }} />
                       <Text style={styles.percent}>{s.percent}</Text>
                     </View>
                     <ProgressBar value={s.fraction} height={6} />
                     <Text style={styles.rowSub}>
-                      {s.explored} of {s.total} of land{s.landPending ? ' (measuring water…)' : ''}
+                      {t('progress.ofLand', { explored: s.explored, total: s.total })}
+                      {s.landPending ? t('progress.measuringWater') : ''}
                     </Text>
                   </View>
                 </Pressable>
@@ -118,22 +118,20 @@ export default function RegionsScreen() {
       {store.ready && store.regions.length === 0 ? (
         <Text style={[styles.muted, { marginTop: 24 }]}>
           {store.discovering
-            ? 'Looking up the areas around you…'
+            ? t('regions.lookingUp')
             : store.pendingPlaces > 0
-              ? 'Your exploring is saved. The areas you visited will appear once you have signal.'
-              : 'No regions yet. Start exploring and they’ll appear here.'}
+              ? t('regions.savedAwaitingSignal')
+              : t('regions.empty')}
         </Text>
       ) : null}
 
       <Text style={[styles.muted, { marginTop: 24 }]}>
-        {store.unlocked.size.toLocaleString()} map cells unlocked. Long-press a region to save it offline or remove it.
+        {t('regions.cellsUnlocked', { count: store.unlocked.size.toLocaleString() })}
       </Text>
       <Pressable onPress={confirmReset} style={styles.reset}>
-        <Text style={styles.resetText}>Reset all progress</Text>
+        <Text style={styles.resetText}>{t('regions.reset')}</Text>
       </Pressable>
-      <Text style={styles.attribution}>
-        Boundaries and water © OpenStreetMap contributors · water tiles by OpenFreeMap / OpenMapTiles
-      </Text>
+      <Text style={styles.attribution}>{t('regions.attribution')}</Text>
     </ScrollView>
   );
 }

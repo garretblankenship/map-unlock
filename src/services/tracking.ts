@@ -3,6 +3,7 @@ import * as TaskManager from 'expo-task-manager';
 
 import { addPendingPlace } from '../core/pending';
 import { Fix, cellsForMove, isUsableFix } from '../core/reveal';
+import { t } from '../i18n';
 import { store } from '../state/store';
 import { getLastFix, saveCells, setLastFix, updatePendingPlaces } from './db';
 
@@ -68,7 +69,7 @@ let foregroundSub: Location.LocationSubscription | null = null;
 export async function startForegroundTracking(): Promise<boolean> {
   const { status } = await Location.requestForegroundPermissionsAsync();
   if (status !== 'granted') {
-    store.setError('Location permission is needed to unlock the map.');
+    store.setError(t('location.permissionNeeded'));
     return false;
   }
   foregroundSub?.remove();
@@ -80,7 +81,7 @@ export async function startForegroundTracking(): Promise<boolean> {
       store.setPosition(loc.coords);
       void ingestFixes([toFix(loc)]);
     },
-    (reason) => store.setError(`Location error: ${reason}`),
+    (reason) => store.setError(t('location.error', { reason })),
   );
   store.setError(null);
   store.setTracking(true, store.backgroundTracking);
@@ -100,14 +101,14 @@ export function stopForegroundTracking() {
 export async function startBackgroundTracking(): Promise<boolean> {
   try {
     if (!(await Location.isBackgroundLocationAvailableAsync())) {
-      store.setError('Background location isn’t available in this build. Use a development build (see README).');
+      store.setError(t('location.backgroundUnavailable'));
       return false;
     }
     const fg = await Location.requestForegroundPermissionsAsync();
     if (fg.status !== 'granted') return false;
     const bg = await Location.requestBackgroundPermissionsAsync();
     if (bg.status !== 'granted') {
-      store.setError('Allow location access "Always" to keep unlocking while the app is closed.');
+      store.setError(t('location.allowAlways'));
       return false;
     }
     await Location.startLocationUpdatesAsync(BACKGROUND_TASK, {
@@ -118,8 +119,8 @@ export async function startBackgroundTracking(): Promise<boolean> {
       pausesUpdatesAutomatically: true,
       showsBackgroundLocationIndicator: true,
       foregroundService: {
-        notificationTitle: 'Open World Life is exploring',
-        notificationBody: 'Unlocking the map as you move.',
+        notificationTitle: t('location.notification.title'),
+        notificationBody: t('location.notification.body'),
         notificationColor: '#2E7D5B',
       },
     });

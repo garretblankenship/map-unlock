@@ -4,21 +4,23 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ProgressBar } from '../components/ProgressBar';
 import { formatBytes } from '../core/mapgeo';
+import { t } from '../i18n';
 import { OfflineArea, offlineAreas, useOfflineAreas } from '../services/offlineAreas';
 import { useStore } from '../state/store';
 import { colors } from '../theme';
 
 function statusLine(a: OfflineArea, offline: boolean): string {
   const size = a.bytes > 0 ? ` · ${formatBytes(a.bytes)}` : '';
+  const percent = Math.floor(a.progress * 100);
   switch (a.state) {
     case 'complete':
-      return `Ready to use offline${size}`;
+      return t('offline.ready', { size });
     case 'error':
-      return `Download problem: ${a.error ?? 'unknown error'}`;
+      return t('offline.problem', { error: a.error ?? t('offline.unknownError') });
     case 'waiting':
-      return `${offline ? 'Waiting for signal' : 'Paused'} · ${Math.floor(a.progress * 100)}%${size}`;
+      return offline ? t('offline.waitingForSignal', { percent, size }) : t('offline.paused', { percent, size });
     default:
-      return `Downloading… ${Math.floor(a.progress * 100)}%${size}`;
+      return t('offline.downloading', { percent, size });
   }
 }
 
@@ -29,9 +31,9 @@ export default function OfflineScreen() {
   const total = areas.reduce((n, a) => n + a.bytes, 0);
 
   const confirmRemove = (a: OfflineArea) =>
-    Alert.alert(`Delete ${a.name}?`, 'The saved map for this area is removed from your phone. Your exploring is kept.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => void offlineAreas.remove(a.id) },
+    Alert.alert(t('offline.delete.title', { name: a.name }), t('offline.delete.body'), [
+      { text: t('action.cancel'), style: 'cancel' },
+      { text: t('action.delete'), style: 'destructive', onPress: () => void offlineAreas.remove(a.id) },
     ]);
 
   return (
@@ -39,19 +41,19 @@ export default function OfflineScreen() {
       style={styles.screen}
       contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: 40, paddingHorizontal: 16 }}
     >
-      <Text style={styles.title}>Offline maps</Text>
+      <Text style={styles.title}>{t('offline.title')}</Text>
       <Text style={styles.subtitle}>
-        Heading somewhere without signal? Before you go, open the map on the area and tap{' '}
-        <Ionicons name="cloud-download-outline" size={14} color={colors.muted} /> to save it. You can also
-        long-press a region to save it.
+        {t('offline.intro.before')}
+        <Ionicons name="cloud-download-outline" size={14} color={colors.muted} />
+        {t('offline.intro.after')}
       </Text>
 
       {offlineAreas.unavailable ? (
-        <Text style={styles.error}>Offline maps need a development build of the app (not Expo Go).</Text>
+        <Text style={styles.error}>{t('save.needsDevBuild')}</Text>
       ) : null}
 
       {areas.length === 0 ? (
-        <Text style={styles.muted}>No saved areas yet.</Text>
+        <Text style={styles.muted}>{t('offline.empty')}</Text>
       ) : (
         <View style={styles.section}>
           {areas.map((a) => (
@@ -72,7 +74,7 @@ export default function OfflineScreen() {
                   {statusLine(a, store.offline)}
                 </Text>
               </View>
-              <Pressable onPress={() => confirmRemove(a)} accessibilityLabel={`Delete ${a.name}`} hitSlop={8}>
+              <Pressable onPress={() => confirmRemove(a)} accessibilityLabel={t('offline.a11y.delete', { name: a.name })} hitSlop={8}>
                 <Ionicons name="trash-outline" size={20} color={colors.muted} />
               </Pressable>
             </Pressable>
@@ -81,13 +83,9 @@ export default function OfflineScreen() {
       )}
 
       {areas.length > 0 ? (
-        <Text style={[styles.muted, { marginTop: 16 }]}>Using {formatBytes(total)} of storage.</Text>
+        <Text style={[styles.muted, { marginTop: 16 }]}>{t('offline.storage', { size: formatBytes(total) })}</Text>
       ) : null}
-      <Text style={styles.note}>
-        Without signal you can still explore anywhere: your progress is always saved. Saved areas add the map
-        underneath, lakes and rivers, and the regions you’re working on. Areas you’ve recently looked at are also
-        kept for a while.
-      </Text>
+      <Text style={styles.note}>{t('offline.note')}</Text>
     </ScrollView>
   );
 }

@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
 
+import { t } from '../i18n';
 import { startNetworkMonitor } from '../services/net';
 import { offlineAreas } from '../services/offlineAreas';
 import { store } from '../state/store';
@@ -52,21 +53,21 @@ export default function RootLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: 'Map',
+            title: t('tab.map'),
             tabBarIcon: ({ color, size }) => <Ionicons name="map" color={color} size={size} />,
           }}
         />
         <Tabs.Screen
           name="regions"
           options={{
-            title: 'Regions',
+            title: t('tab.regions'),
             tabBarIcon: ({ color, size }) => <Ionicons name="trophy" color={color} size={size} />,
           }}
         />
         <Tabs.Screen
           name="offline"
           options={{
-            title: 'Offline',
+            title: t('tab.offline'),
             tabBarIcon: ({ color, size }) => <Ionicons name="cloud-download" color={color} size={size} />,
           }}
         />

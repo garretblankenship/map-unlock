@@ -79,6 +79,15 @@ pinned to a commit. Before launching, host the file yourself (any static
 host) and build with `MAP_STYLE_URL=https://…/style.json`. If you change
 the style, re-host it at a new URL so existing downloads keep matching.
 
+### Languages
+
+All on-screen text lives in `src/i18n/en.ts` and is read with `t('key')`.
+To add a language, copy `en.ts` (e.g. to `fr.ts`), translate it, register
+it in `src/i18n/index.ts`, and add its code to `supportedLocales` for the
+`expo-localization` plugin in `app.json`. TypeScript reports any missing
+entries. The permission texts in `app.json` are translated separately,
+through the plugin's `locales` option.
+
 ### Tests
 
 ```bash
