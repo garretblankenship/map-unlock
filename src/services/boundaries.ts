@@ -1,14 +1,16 @@
 import { GeoJsonGeometry, isAreaGeometry } from '../core/geometry';
 import { RegionLevel, RegionRecord } from '../core/regions';
 import { t } from '../i18n';
+import { boundaryFilesConfigured, boundaryRegionsAt } from './boundaryFiles';
 import { HttpError, fetchWithTimeout } from './net';
 
 /**
- * Administrative boundaries come from OpenStreetMap via the public Nominatim
- * API. Its usage policy allows at most one request per second and requires
- * an identifying User-Agent, so all requests go through a small queue.
- * For a production launch, point NOMINATIM_URL at a self-hosted instance or
- * a commercial geocoder with polygon support.
+ * Where region boundaries come from. Normally the boundary files built by
+ * pipeline/ (services/boundaryFiles.ts), which also work offline once
+ * cached. Until BOUNDARIES_URL is configured, development builds fall back
+ * to the public OpenStreetMap lookup service (Nominatim) below: its usage
+ * policy allows at most one request per second, requires an identifying
+ * User-Agent and doesn't allow app traffic at scale, so it must not ship.
  */
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org';
 const USER_AGENT = 'OpenWorldLife/1.0 (https://github.com/garretblankenship/map-unlock)';
@@ -88,6 +90,10 @@ function toRecord(p: NominatimPlace): RegionRecord | null {
  * with the error, so a weak signal still makes progress.
  */
 export async function regionsAt(lat: number, lon: number): Promise<{ regions: RegionRecord[]; error?: unknown }> {
+  return boundaryFilesConfigured ? boundaryRegionsAt(lat, lon) : nominatimRegionsAt(lat, lon);
+}
+
+async function nominatimRegionsAt(lat: number, lon: number): Promise<{ regions: RegionRecord[]; error?: unknown }> {
   const found = new Map<string, RegionRecord>();
   for (const { zoom, threshold } of LOOKUPS) {
     let place: NominatimPlace;

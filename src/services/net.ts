@@ -11,11 +11,11 @@ export class NetworkError extends Error {}
 
 /** The server answered with an error status. */
 export class HttpError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-  ) {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
     super(message);
+    this.status = status;
   }
 }
 

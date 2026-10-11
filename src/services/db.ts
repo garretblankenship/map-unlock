@@ -15,7 +15,8 @@ import type { LatLng } from '../core/tiles';
  *
  * CACHE_DB, data that can be downloaded again, left out of Android backups
  * (whose 25 MB limit would otherwise be at risk):
- *  - water:   cached water masks per map tile (see core/water.ts)
+ *  - water:          cached water masks per map tile (see core/water.ts)
+ *  - boundary_files: downloaded boundary tiles and regions, by URL
  */
 export const PROGRESS_DB = 'mapunlock.db';
 export const CACHE_DB = 'cache.db';
@@ -29,6 +30,7 @@ export function getCacheDb(): SQLite.SQLiteDatabase {
   cacheDb.execSync(`
     PRAGMA journal_mode = WAL;
     CREATE TABLE IF NOT EXISTS water (tile TEXT PRIMARY KEY NOT NULL, mask BLOB, fetched_at INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS boundary_files (url TEXT PRIMARY KEY NOT NULL, body TEXT, fetched_at INTEGER NOT NULL);
   `);
   return cacheDb;
 }
@@ -190,4 +192,19 @@ export function updatePendingPlaces(fn: (list: LatLng[]) => LatLng[]): Promise<L
   });
   pendingQueue = run.catch(() => undefined);
   return run;
+}
+
+/** A cached boundary file: undefined if never fetched, null if the server had none (404). */
+export async function loadBoundaryFile(url: string): Promise<string | null | undefined> {
+  const row = await getCacheDb().getFirstAsync<{ body: string | null }>('SELECT body FROM boundary_files WHERE url = ?', url);
+  return row ? row.body : undefined;
+}
+
+export async function saveBoundaryFile(url: string, body: string | null): Promise<void> {
+  await getCacheDb().runAsync(
+    'INSERT OR REPLACE INTO boundary_files (url, body, fetched_at) VALUES (?, ?, ?)',
+    url,
+    body,
+    Date.now(),
+  );
 }

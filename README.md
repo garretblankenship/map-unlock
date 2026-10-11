@@ -23,34 +23,17 @@ neighbourhood, city, state and country you visit gets a progress score
 - **Fog.** The gray overlay is computed for whatever part of the map is on
   screen. Unlocked cells are traced into outlines and cut out of the fog as
   holes. Zoomed out, the grid coarsens so it stays fast at every scale.
-- **Regions.** When you arrive somewhere new, the app looks up the
-  administrative boundaries around you (neighbourhood/suburb, city, state,
-  country) from OpenStreetMap. Completion = unlocked land cells inside the
-  boundary ÷ all land cells inside the boundary. Small regions measure
-  water cell by cell. Very large ones (states, countries) use a coarser
-  water estimate. Regions are added only by visiting them; there's no
-  place search.
-- **Battery.** Background GPS runs at full accuracy while you move and
-  drops to low-power location after ~3 minutes standing still, waking up
-  again once you move ~75 m (`src/core/motion.ts`). Updates never pause on
-  their own, since iOS wouldn't resume them after a rest stop.
-- **Dark mode.** The app and the map follow the phone's light/dark
-  setting (`src/theme.ts`, `assets/map/style-dark.json`). The dark map uses
-  the same tiles, icons and fonts as the light one, so saved offline areas
-  work in both.
-- **Sharing.** The share button (on the map card, or long-press a region)
-  makes an image card with the region's outline, name and percentage, and
-  opens the share sheet. The explored streets are never included, so a
-  shared card can't reveal where someone lives.
-- **Units.** Areas show in km² / m² or mi² / acres, following the phone's
-  region (US and UK get imperial). Settings can override it.
-- **Storage and backups.** Everything is stored on the device in SQLite;
-  there are no accounts and no servers. Progress (unlocked cells, regions)
-  is in its own small database that the phone's normal iCloud / Google
-  backup includes, so it comes back on a new phone restored from backup.
-  Re-downloadable data (water cache, saved offline maps) is left out of
-  Android backups, which stop working past 25 MB
-  (`plugins/with-backup-rules.js`).
+- **Regions.** Neighbourhoods, cities, counties, parks & forests, states
+  and countries come from OpenStreetMap boundaries, prepared by
+  `pipeline/` into small static files (see `pipeline/README.md`). When you
+  arrive somewhere, the app fetches the tile for your location, finds the
+  regions containing you (the smallest of each level, plus every park) and
+  fetches their outlines. Everything is cached on the phone, so places
+  you've been, or saved for offline use, resolve without signal.
+  Completion = unlocked land cells inside the boundary ÷ all land cells
+  inside it. Small regions measure water cell by cell; very large ones
+  (states, countries) use a coarser estimate. Regions are added only by
+  visiting them; there's no place search.
 - **No signal? Keep exploring.** GPS works without a connection, and
   unlocking is saved straight to the device, so hikes in the mountains or
   deep woods count in full. Places you pass through without signal (or
@@ -149,9 +132,10 @@ src/
 
 ## Before launching publicly
 
-- **Boundary service.** The public Nominatim server allows 1 request/second
-  and isn't meant for app traffic at scale. Self-host Nominatim, or
-  precompute boundary files and serve them from a CDN.
+- **Boundary files.** Run `pipeline/run.sh` on the planet, upload the
+  output to a static host or CDN, and build with
+  `BOUNDARIES_URL=https://…/boundaries/v1`. Without it the app falls back
+  to the public Nominatim service, which is for development only.
 - **Map and water tiles.** OpenFreeMap is free and asks for no key, but
   it's a community service (consider donating). At scale, consider hosting
   the tiles yourself; OpenFreeMap publishes weekly full-planet downloads.

@@ -4,6 +4,8 @@ import { levelForRank } from './boundaries';
 
 vi.mock('expo-localization', () => ({ getLocales: () => [] }));
 vi.mock('expo-network', () => ({}));
+vi.mock('expo-constants', () => ({ default: { expoConfig: { extra: {} } } }));
+vi.mock('expo-sqlite', () => ({}));
 
 describe('levelForRank', () => {
   it('maps OpenStreetMap place ranks to region levels', () => {

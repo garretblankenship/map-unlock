@@ -16,6 +16,7 @@ import {
 } from '../core/mapgeo';
 import type { LatLng } from '../core/tiles';
 import { t } from '../i18n';
+import { boundaryFilesConfigured, prefetchBoundaries } from './boundaryFiles';
 import { getMeta, setMeta } from './db';
 import { MAP_STYLE_URL } from './mapStyle';
 import { isOnline, onConnectivityChange } from './net';
@@ -25,7 +26,9 @@ import { water } from './water';
  * Areas saved for use without signal. Each one is three downloads:
  *  - the basemap, as a MapLibre offline pack (stored by MapLibre itself);
  *  - water masks, so lakes and rivers stay unfogged (our SQLite cache);
- *  - the boundaries it spans, via the store's lookup queue.
+ *  - the boundaries it spans: the boundary files for the area (cached, so
+ *    regions are found there without signal) plus lookups of the regions
+ *    at a few points in it via the store's queue.
  * Downloads resume by themselves when the app restarts or signal returns.
  */
 
@@ -50,12 +53,14 @@ type Entry = {
   area: OfflineArea;
   map: { done: number; total: number; complete: boolean };
   water: { done: number; total: number; complete: boolean; running: boolean };
+  boundaries: { complete: boolean; running: boolean };
 };
 
 /** Default MapLibre cache for map tiles you've looked at, on top of saved areas. */
 const AMBIENT_CACHE_BYTES = 256 * 1024 * 1024;
 const WATER_BATCH = 16;
 const waterDoneKey = (id: string) => `offlineWaterDone:${id}`;
+const boundariesDoneKey = (id: string) => `offlineBoundariesDone:${id}`;
 
 class OfflineAreas {
   private entries = new Map<string, Entry>();
@@ -100,9 +105,11 @@ class OfflineAreas {
       const meta = pack.metadata as Partial<PackMetadata>;
       const entry = this.track(pack.id, meta.name ?? t('offline.defaultName'), pack.bounds, meta.createdAt ?? 0);
       entry.water.complete = (await getMeta<boolean>(waterDoneKey(pack.id))) === true;
+      entry.boundaries.complete = (await getMeta<boolean>(boundariesDoneKey(pack.id))) === true;
       this.applyStatus(entry, await pack.status());
       if (!entry.map.complete) await this.watch(pack, true);
       this.downloadWater(entry);
+      this.downloadBoundaries(entry);
     }
     onConnectivityChange((online) => {
       if (online) void this.resumeAll();
@@ -130,6 +137,7 @@ class OfflineAreas {
     const entry = this.track(pack.id, name, bounds, createdAt);
     this.emit();
     this.downloadWater(entry);
+    this.downloadBoundaries(entry);
     this.queueLookups(samplePoints(bounds));
   }
 
@@ -137,6 +145,7 @@ class OfflineAreas {
     OfflineManager.removeListener(id);
     await OfflineManager.deletePack(id);
     await setMeta(waterDoneKey(id), false);
+    await setMeta(boundariesDoneKey(id), false);
     this.entries.delete(id);
     this.emit();
   }
@@ -152,6 +161,7 @@ class OfflineAreas {
         if (pack) await this.watch(pack, true);
       }
       this.downloadWater(entry);
+      this.downloadBoundaries(entry);
     }
     this.emit();
   }
@@ -161,6 +171,8 @@ class OfflineAreas {
       area: { id, name, bounds, createdAt, state: 'downloading', progress: 0, bytes: 0, error: null },
       map: { done: 0, total: estimateDownload(bounds).mapTiles, complete: false },
       water: { done: 0, total: estimateDownload(bounds).waterTiles, complete: false, running: false },
+      // Without boundary files (development) there's nothing to download.
+      boundaries: { complete: !boundaryFilesConfigured, running: false },
     };
     this.entries.set(id, entry);
     return entry;
@@ -201,17 +213,36 @@ class OfflineAreas {
   }
 
   private refresh(entry: Entry, mapActive = false) {
-    const { map, water: w, area } = entry;
+    const { map, water: w, boundaries: b, area } = entry;
     const done = (map.complete ? map.total : map.done) + (w.complete ? w.total : w.done);
     area.progress = Math.min(1, done / Math.max(1, map.total + w.total));
     area.state =
-      map.complete && w.complete
+      map.complete && w.complete && b.complete
         ? 'complete'
         : area.error
           ? 'error'
-          : mapActive || w.running
+          : mapActive || w.running || b.running
             ? 'downloading'
             : 'waiting';
+  }
+
+  /** Fetches the area's boundary files; already-cached files are instant. */
+  private downloadBoundaries(entry: Entry) {
+    const b = entry.boundaries;
+    if (b.complete || b.running) return;
+    b.running = true;
+    this.refresh(entry);
+    void prefetchBoundaries(entry.area.bounds)
+      .then(async () => {
+        b.complete = true;
+        await setMeta(boundariesDoneKey(entry.area.id), true);
+      })
+      .catch(() => undefined) // Retried when signal returns or the app restarts.
+      .finally(() => {
+        b.running = false;
+        this.refresh(entry);
+        this.emit();
+      });
   }
 
   /** Fetches water for the area, a batch at a time; already-cached tiles are instant. */

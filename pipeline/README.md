@@ -35,7 +35,7 @@ out/tiles/mid/8/<x>/<y>.json           counties and parks
 out/tiles/wide/5/<x>/<y>.json          states and countries
 ```
 
-Tile files are `{"regions": [{id, name, level, rings}]}`, with rings in the
+Tile files are `{"regions": [{id, name, level, area, rings}]}` (area in km²), with rings in the
 compact form in `shared/boundaryCodec.ts`. Missing tiles mean "no regions
 here". IDs are OpenStreetMap IDs (`R` relation, `W` way), the same as the
 app used with Nominatim, so existing progress keeps its regions.

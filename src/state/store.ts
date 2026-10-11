@@ -10,6 +10,7 @@ import { BASE_ZOOM, LatLng, distanceMeters, latToY, lonToX, parentKey } from '..
 import { UnitPreference, UnitSystem, resolveUnits } from '../core/units';
 import * as db from '../services/db';
 import { regionsAt } from '../services/boundaries';
+import { boundaryFilesConfigured } from '../services/boundaryFiles';
 import { isOnline, isTransient, onConnectivityChange } from '../services/net';
 import { offlineAreas } from '../services/offlineAreas';
 import { water } from '../services/water';
@@ -305,7 +306,9 @@ class ExplorationStore {
       return open.length === l.length ? l : open;
     });
     this.pendingPlaces = list.length;
-    if (list.length === 0 || !isOnline()) return this.emit();
+    // Boundary files cached on the phone (e.g. a saved area) answer without
+    // signal, so only skip when offline and there's nothing to fall back on.
+    if (list.length === 0 || (!isOnline() && !boundaryFilesConfigured)) return this.emit();
 
     this.discovering = true;
     this.emit();

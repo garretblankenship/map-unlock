@@ -16,7 +16,16 @@
  * first pass keeps only (simplified) countries, the second writes each
  * region as it goes and appends tile pieces to per-tile files.
  */
-import { createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, appendFileSync, writeFileSync } from 'node:fs';
+import {
+  createReadStream,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  appendFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 
@@ -50,7 +59,10 @@ import { tileBBox, tilesFor } from './tiles.ts';
 /** Bump when the file format changes; the app checks it. */
 export const FORMAT_VERSION = 1;
 
-type Feature = { geometry: { type: string; coordinates: unknown } | null; properties: Tags & { '@type'?: string; '@id'?: number | string } };
+type Feature = {
+  geometry: { type: string; coordinates: unknown } | null;
+  properties: Tags & { '@type'?: string; '@id'?: number | string };
+};
 
 async function* features(file: string): AsyncGenerator<Feature> {
   const lines = createInterface({ input: createReadStream(file), crlfDelay: Infinity });
@@ -78,7 +90,12 @@ export function findCountry(countries: Country[], point: [number, number] | null
   return null;
 }
 
-export type BuildStats = { regions: number; tiles: number; byLevel: Record<string, number>; byCountry: Record<string, Record<string, number>> };
+export type BuildStats = {
+  regions: number;
+  tiles: number;
+  byLevel: Record<string, number>;
+  byCountry: Record<string, Record<string, number>>;
+};
 
 /**
  * The country an area lies in: from the countries in the input, else its own
@@ -145,19 +162,26 @@ export async function build(input: string, out: string, defaultCountry: string |
     const level: Level | null = classify(p, country?.code ?? null);
     if (!level) continue;
     if (level === 'park' && p.boundary !== 'national_park' && areaKm2(polygons) < MIN_PARK_KM2) continue;
-    if (level === 'neighbourhood' && p.boundary !== 'administrative' && areaKm2(polygons) < MIN_PLACE_NEIGHBOURHOOD_KM2) {
+    if (
+      level === 'neighbourhood' &&
+      p.boundary !== 'administrative' &&
+      areaKm2(polygons) < MIN_PLACE_NEIGHBOURHOOD_KM2
+    ) {
       continue;
     }
 
     const shape = roundPolygons(simplifyPolygons(polygons, TOLERANCE_METERS[level]));
     const name = p.name!;
     // A placeholder country name (just its code) isn't worth showing.
-    const displayName = level === 'country' || !country || country.name === country.code ? name : `${name}, ${country.name}`;
+    const displayName =
+      level === 'country' || !country || country.name === country.code ? name : `${name}, ${country.name}`;
     writeFileSync(
       join(out, 'regions', `${id}.json`),
       JSON.stringify({ id, name, displayName, level, geometry: { type: 'MultiPolygon', coordinates: shape } }),
     );
 
+    // Area lets the app prefer the smallest region of a level at a point.
+    const area = Math.round(areaKm2(shape) * 1000) / 1000;
     const group = groupFor(level);
     const z = TILE_GROUPS[group].zoom;
     for (const [x, y] of tilesFor(bboxOf(shape), z)) {
@@ -173,7 +197,7 @@ export async function build(input: string, out: string, defaultCountry: string |
       if (!rings.length) continue;
       const key = `${group}/${z}/${x}/${y}`;
       const list = buffer.get(key) ?? [];
-      list.push(JSON.stringify({ id, name, level, rings }));
+      list.push(JSON.stringify({ id, name, level, area, rings }));
       buffer.set(key, list);
       if (++buffered >= 20_000) flush();
     }
@@ -194,7 +218,10 @@ export async function build(input: string, out: string, defaultCountry: string |
   if (existsSync(tmp)) {
     for (const file of walk(tmp)) {
       const rel = file.slice(tmp.length + 1, -'.ndjson'.length);
-      const regions = readFileSync(file, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+      const regions = readFileSync(file, 'utf8')
+        .trim()
+        .split('\n')
+        .map((l) => JSON.parse(l));
       const target = join(out, 'tiles', `${rel}.json`);
       mkdirSync(join(target, '..'), { recursive: true });
       writeFileSync(target, JSON.stringify({ regions }));
@@ -203,10 +230,16 @@ export async function build(input: string, out: string, defaultCountry: string |
     rmSync(tmp, { recursive: true, force: true });
   }
 
-  const groups = Object.fromEntries(Object.entries(TILE_GROUPS).map(([g, v]) => [g, { zoom: v.zoom, levels: v.levels }]));
+  const groups = Object.fromEntries(
+    Object.entries(TILE_GROUPS).map(([g, v]) => [g, { zoom: v.zoom, levels: v.levels }]),
+  );
   writeFileSync(
     join(out, 'meta.json'),
-    JSON.stringify({ version: FORMAT_VERSION, generated: new Date().toISOString(), groups, regions: stats.regions }, null, 2),
+    JSON.stringify(
+      { version: FORMAT_VERSION, generated: new Date().toISOString(), groups, regions: stats.regions },
+      null,
+      2,
+    ),
   );
   return stats;
 }
@@ -216,7 +249,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const defaultCountry = args.find((a) => a.startsWith('--default-country='))?.split('=')[1] ?? null;
   const [input, out] = args.filter((a) => !a.startsWith('--'));
   if (!input || !out) {
-    console.error('Usage: node --experimental-strip-types pipeline/build.ts <areas.geojsonseq> <out-dir> [--default-country=XX]');
+    console.error(
+      'Usage: node --experimental-strip-types pipeline/build.ts <areas.geojsonseq> <out-dir> [--default-country=XX]',
+    );
     process.exit(1);
   }
   const stats = await build(input, out, defaultCountry);

@@ -1,6 +1,13 @@
-import { GeoJsonGeometry, Shape, scanShape, shapeCellCount, shapeContainsCell, shapeFromGeoJson } from './geometry';
+import {
+  type GeoJsonGeometry,
+  type Shape,
+  scanShape,
+  shapeCellCount,
+  shapeContainsCell,
+  shapeFromGeoJson,
+} from './geometry';
 import { BASE_ZOOM } from './tiles';
-import { MASK_BITS, TileRange, WATER_TILE_MAX_ZOOM, WaterLookup, isWaterCell, tileCount } from './water';
+import { MASK_BITS, type TileRange, WATER_TILE_MAX_ZOOM, type WaterLookup, isWaterCell, tileCount } from './water';
 
 /**
  * Kinds of region we track, in the order they're listed: administrative

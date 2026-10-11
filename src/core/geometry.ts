@@ -1,5 +1,5 @@
 import { scanRings } from './scanline';
-import { BASE_ZOOM, LatLng, keyX, keyY, latToY, lonToX, xToLon, yToLat } from './tiles';
+import { BASE_ZOOM, type LatLng, keyX, keyY, latToY, lonToX, xToLon, yToLat } from './tiles';
 
 /** GeoJSON geometry as returned by OpenStreetMap / Nominatim. */
 export type GeoJsonGeometry =
