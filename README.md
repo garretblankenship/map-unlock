@@ -1,4 +1,4 @@
-# Map Unlock
+# Open World Life
 
 A fog-of-war exploration game for the real world, for iOS and Android. The map
 starts grayed out. As you walk or run around, the area near you gets

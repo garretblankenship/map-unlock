@@ -16,7 +16,7 @@ const res = await fetch('https://tiles.openfreemap.org/styles/liberty');
 if (!res.ok) throw new Error(`Style download failed (${res.status})`);
 const style = await res.json();
 
-style.name = 'Map Unlock (OpenFreeMap Liberty)';
+style.name = 'Open World Life (OpenFreeMap Liberty)';
 style.sources.openmaptiles = {
   type: 'vector',
   tiles: ['https://tiles.openfreemap.org/planet/latest/{z}/{x}/{y}.pbf'],

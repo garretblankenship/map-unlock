@@ -1,18 +1,18 @@
 {
   "expo": {
-    "name": "Map Unlock",
-    "slug": "map-unlock",
+    "name": "Open World Life",
+    "slug": "open-world-life",
     "version": "0.1.0",
-    "scheme": "mapunlock",
+    "scheme": "openworldlife",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.mapunlock.app"
+      "bundleIdentifier": "com.openworldlife.app"
     },
     "android": {
-      "package": "com.mapunlock.app",
+      "package": "com.openworldlife.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -31,7 +31,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Map Unlock uses your location to clear the fog from places you visit.",
+          "locationWhenInUsePermission": "Open World Life uses your location to clear the fog from places you visit.",
           "locationAlwaysAndWhenInUsePermission": "Allow \"Always\" so the map keeps unlocking while your phone is in your pocket.",
           "locationAlwaysPermission": "Allow \"Always\" so the map keeps unlocking while your phone is in your pocket.",
           "motionUsagePermission": false,

@@ -118,7 +118,7 @@ export async function startBackgroundTracking(): Promise<boolean> {
       pausesUpdatesAutomatically: true,
       showsBackgroundLocationIndicator: true,
       foregroundService: {
-        notificationTitle: 'Map Unlock is exploring',
+        notificationTitle: 'Open World Life is exploring',
         notificationBody: 'Unlocking the map as you move.',
         notificationColor: '#2E7D5B',
       },

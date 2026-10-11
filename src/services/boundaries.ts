@@ -10,7 +10,7 @@ import { HttpError, fetchWithTimeout } from './net';
  * a commercial geocoder with polygon support.
  */
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org';
-const USER_AGENT = 'MapUnlock/1.0 (https://github.com/garretblankenship/map-unlock)';
+const USER_AGENT = 'OpenWorldLife/1.0 (https://github.com/garretblankenship/map-unlock)';
 const MIN_INTERVAL_MS = 1100;
 /** Boundary responses are 1–100 KB; allow for a weak signal. */
 const TIMEOUT_MS = 30_000;
