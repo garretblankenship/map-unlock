@@ -28,8 +28,8 @@ neighbourhood, city, state and country you visit gets a progress score
   country) from OpenStreetMap. Completion = unlocked land cells inside the
   boundary ÷ all land cells inside the boundary. Small regions measure
   water cell by cell. Very large ones (states, countries) use a coarser
-  water estimate. You can also search for any
-  place (e.g. "Sydney") and add it as a goal.
+  water estimate. Regions are added only by visiting them; there's no
+  place search.
 - **Storage.** Everything is stored on the device in SQLite. There are no
   accounts and no servers.
 - **No signal? Keep exploring.** GPS works without a connection, and
@@ -37,7 +37,7 @@ neighbourhood, city, state and country you visit gets a progress score
   deep woods count in full. Places you pass through without signal (or
   while the app is closed) are queued, and their areas are looked up as
   soon as you're back online. Every request has a deadline, so a weak
-  signal can't stall the app. Search needs a connection.
+  signal can't stall the app.
 - **Offline maps.** The map is drawn with MapLibre from OpenStreetMap
   vector tiles (OpenFreeMap, no API key). Before heading out of signal,
   tap the download button on the map (or long-press a region) to save an
@@ -103,7 +103,7 @@ src/
     pending.ts      places waiting for a boundary lookup (offline queue)
   services/
     tracking.ts     foreground + background location (expo-location)
-    boundaries.ts   OpenStreetMap/Nominatim boundary lookup & search
+    boundaries.ts   OpenStreetMap/Nominatim boundary lookup
     water.ts        water tile download + cache (OpenFreeMap)
     offlineAreas.ts saved offline areas: map pack, water, boundaries
     mapStyle.ts     the map style (bundled + hosted copy)

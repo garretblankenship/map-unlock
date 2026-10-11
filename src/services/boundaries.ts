@@ -100,11 +100,3 @@ export async function regionsAt(lat: number, lon: number): Promise<{ regions: Re
   }
   return { regions: [...found.values()] };
 }
-
-/** Search for a place by name, keeping only results that have a boundary. */
-export async function searchRegions(query: string): Promise<RegionRecord[]> {
-  const places = await request<NominatimPlace[]>(
-    `/search?format=jsonv2&q=${encodeURIComponent(query)}&polygon_geojson=1&polygon_threshold=0.001&limit=8`,
-  );
-  return places.map(toRecord).filter((r): r is RegionRecord => r !== null);
-}
