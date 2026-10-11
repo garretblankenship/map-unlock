@@ -59,6 +59,7 @@ export function getDb(): SQLite.SQLiteDatabase {
   db.execSync(`
     PRAGMA journal_mode = WAL;
     CREATE TABLE IF NOT EXISTS cells (key INTEGER PRIMARY KEY NOT NULL, unlocked_at INTEGER NOT NULL);
+    CREATE INDEX IF NOT EXISTS cells_by_time ON cells (unlocked_at);
     CREATE TABLE IF NOT EXISTS regions (
       id TEXT PRIMARY KEY NOT NULL,
       name TEXT NOT NULL,
@@ -69,6 +70,9 @@ export function getDb(): SQLite.SQLiteDatabase {
     );
     CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY NOT NULL, v TEXT NOT NULL);
   `);
+  // Added after the first release: the cached exact cell count of a region.
+  const columns = db.getAllSync<{ name: string }>('PRAGMA table_info(regions)');
+  if (!columns.some((c) => c.name === 'total_cells')) db.execSync('ALTER TABLE regions ADD COLUMN total_cells INTEGER');
   moveWaterToCache(db);
   return db;
 }
@@ -79,24 +83,38 @@ export async function loadCells(): Promise<number[]> {
 }
 
 /** Inserts cells, returning only the ones that weren't already unlocked. */
+/** Cells unlocked at or after a time (for catching up after the background task ran). */
+export async function loadCellsSince(time: number): Promise<number[]> {
+  const rows = await getDb().getAllAsync<{ key: number }>('SELECT key FROM cells WHERE unlocked_at >= ?', time);
+  return rows.map((r) => r.key);
+}
+
+/** Rows per INSERT, well under SQLite's limit of bound variables. */
+const INSERT_CHUNK = 400;
+
+/**
+ * Inserts cells and returns the ones that weren't already unlocked. When the
+ * caller knows what's unlocked (the app is running), duplicates are skipped
+ * before touching the database. One statement per few hundred cells instead
+ * of one per cell: this runs for every GPS fix.
+ */
 export async function saveCells(keys: number[], known?: Set<number>): Promise<number[]> {
   const fresh = known ? keys.filter((k) => !known.has(k)) : keys;
   if (fresh.length === 0) return [];
   const d = getDb();
-  const added: number[] = [];
+  const now = Date.now();
   await d.withTransactionAsync(async () => {
-    const stmt = await d.prepareAsync('INSERT OR IGNORE INTO cells (key, unlocked_at) VALUES (?, ?)');
-    try {
-      const now = Date.now();
-      for (const k of fresh) {
-        const res = await stmt.executeAsync(k, now);
-        if (res.changes > 0) added.push(k);
-      }
-    } finally {
-      await stmt.finalizeAsync();
+    for (let i = 0; i < fresh.length; i += INSERT_CHUNK) {
+      const chunk = fresh.slice(i, i + INSERT_CHUNK);
+      const params: number[] = [];
+      for (const k of chunk) params.push(k, now);
+      await d.runAsync(
+        `INSERT OR IGNORE INTO cells (key, unlocked_at) VALUES ${chunk.map(() => '(?, ?)').join(', ')}`,
+        params,
+      );
     }
   });
-  return added;
+  return fresh;
 }
 
 export async function loadRegions(): Promise<RegionRecord[]> {
@@ -107,6 +125,7 @@ export async function loadRegions(): Promise<RegionRecord[]> {
     level: RegionRecord['level'];
     geometry: string;
     created_at: number;
+    total_cells: number | null;
   }>('SELECT * FROM regions ORDER BY created_at');
   return rows.map((r) => ({
     id: r.id,
@@ -115,19 +134,26 @@ export async function loadRegions(): Promise<RegionRecord[]> {
     level: r.level,
     geometry: JSON.parse(r.geometry),
     createdAt: r.created_at,
+    totalCells: r.total_cells ?? undefined,
   }));
 }
 
 export async function saveRegion(r: RegionRecord): Promise<void> {
   await getDb().runAsync(
-    'INSERT OR REPLACE INTO regions (id, name, display_name, level, geometry, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    'INSERT OR REPLACE INTO regions (id, name, display_name, level, geometry, created_at, total_cells) VALUES (?, ?, ?, ?, ?, ?, ?)',
     r.id,
     r.name,
     r.displayName,
     r.level,
     JSON.stringify(r.geometry),
     r.createdAt,
+    r.totalCells ?? null,
   );
+}
+
+/** Remembers a region's exact cell count so it isn't recomputed at every launch. */
+export async function saveRegionTotal(id: string, totalCells: number): Promise<void> {
+  await getDb().runAsync('UPDATE regions SET total_cells = ? WHERE id = ?', totalCells, id);
 }
 
 export async function deleteRegion(id: string): Promise<void> {
@@ -164,17 +190,23 @@ export async function setMeta(k: string, v: unknown): Promise<void> {
   await getDb().runAsync('INSERT OR REPLACE INTO meta (k, v) VALUES (?, ?)', k, JSON.stringify(v));
 }
 
+/** The last fix is read for every GPS update, so it's kept in memory too. */
+let lastFix: Fix | null | undefined;
+
 export async function getLastFix(): Promise<Fix | null> {
-  return getMeta<Fix>('lastFix');
+  if (lastFix === undefined) lastFix = await getMeta<Fix>('lastFix');
+  return lastFix;
 }
 
 export async function setLastFix(fix: Fix): Promise<void> {
+  lastFix = fix;
   await setMeta('lastFix', fix);
 }
 
 export async function resetAll(): Promise<void> {
   // Settings survive a reset; everything else about progress goes.
   await getDb().execAsync("DELETE FROM cells; DELETE FROM regions; DELETE FROM meta WHERE k != 'settings';");
+  lastFix = null;
 }
 
 let pendingQueue: Promise<unknown> = Promise.resolve();

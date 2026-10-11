@@ -74,10 +74,28 @@ function taskOptions(mode: MotionMode): Location.LocationTaskOptions {
       notificationColor: '#2E7D5B',
     },
   };
-  return mode === 'moving'
-    ? { ...common, accuracy: Location.Accuracy.High, distanceInterval: 10, timeInterval: 5_000 }
-    : // Wi-Fi/cell-based where available; just enough to notice you've moved on.
-      { ...common, accuracy: Location.Accuracy.Balanced, distanceInterval: 50, timeInterval: 60_000 };
+  if (mode === 'moving') {
+    return {
+      ...common,
+      accuracy: Location.Accuracy.High,
+      // Fixes keep coming even when standing still (no distance filter), so
+      // the app can notice a stop and drop to low power. The GPS is on either
+      // way while moving; what costs battery is waking the app for each fix,
+      // so they're batched natively and delivered about once a minute.
+      distanceInterval: 0,
+      timeInterval: 5_000,
+      deferredUpdatesInterval: 60_000,
+    };
+  }
+  // Still: Wi-Fi/cell-based where available, just enough to notice you've
+  // moved on, and delivered straight away so full GPS resumes promptly.
+  return {
+    ...common,
+    accuracy: Location.Accuracy.Balanced,
+    distanceInterval: 50,
+    timeInterval: 60_000,
+    deferredUpdatesInterval: 0,
+  };
 }
 
 let motion: MotionState | null = null;
@@ -106,6 +124,12 @@ TaskManager.defineTask<{ locations: Location.LocationObject[] }>(BACKGROUND_TASK
 
 let foregroundSub: Location.LocationSubscription | null = null;
 
+/**
+ * Live location while the app is on screen, for a responsive map. It stops
+ * whenever the app leaves the screen (see pauseForegroundTracking): with
+ * background exploring on, the low-power background task takes over; with it
+ * off, nothing should be using GPS at all.
+ */
 export async function startForegroundTracking(): Promise<boolean> {
   const { status } = await Location.requestForegroundPermissionsAsync();
   if (status !== 'granted') {
@@ -114,7 +138,9 @@ export async function startForegroundTracking(): Promise<boolean> {
   }
   foregroundSub?.remove();
   foregroundSub = await Location.watchPositionAsync(
-    { accuracy: Location.Accuracy.BestForNavigation, distanceInterval: 5, timeInterval: 2000 },
+    // "High" is plenty for a 50 m reveal radius; "BestForNavigation" adds
+    // sensor fusion and costs noticeably more power.
+    { accuracy: Location.Accuracy.High, distanceInterval: 5, timeInterval: 2000 },
     (loc) => {
       // While the simulated walk runs it owns the position and the trail.
       if (store.demoActive) return;
@@ -132,6 +158,17 @@ export function stopForegroundTracking() {
   foregroundSub?.remove();
   foregroundSub = null;
   store.setTracking(false, store.backgroundTracking);
+}
+
+/** The app left the screen: stop on-screen GPS, keeping it "on" so it resumes. */
+export function pauseForegroundTracking() {
+  foregroundSub?.remove();
+  foregroundSub = null;
+}
+
+/** Back on screen: resume on-screen GPS if it was on. */
+export async function resumeForegroundTracking() {
+  if (store.tracking && !foregroundSub) await startForegroundTracking();
 }
 
 /** What turning on background exploring needs right now (see core/permissions.ts). */

@@ -33,8 +33,22 @@ describe('motion', () => {
     expect(nextMotion(still, fix(90, 400, 20)).mode).toBe('moving');
   });
 
-  it('does not doze off on rough fixes while moving', () => {
-    const rough = Array.from({ length: 30 }, (_, i) => fix(0, i * 15, 120));
-    expect(run(rough).mode).toBe('moving');
+  it('saves battery indoors, where fixes drift by tens of metres', () => {
+    // Accuracy ~60 m, positions wandering up to 50 m from the first one.
+    const indoors = Array.from({ length: 20 }, (_, i) => fix((i % 4) * 15 - 10, i * 15, 60));
+    expect(run(indoors).mode).toBe('still');
+  });
+
+  it('treats a reported walking speed as moving, even without distance yet', () => {
+    const stood = run(Array.from({ length: 20 }, (_, i) => fix(0, i * 15)));
+    expect(stood.mode).toBe('still');
+    expect(nextMotion(stood, { ...fix(5, 400), speed: 1.5 }).mode).toBe('moving');
+    // A slow GPS speed blip while standing doesn't count.
+    expect(nextMotion(stood, { ...fix(5, 400), speed: 0.4 }).mode).toBe('still');
+  });
+
+  it('keeps full GPS while really walking with rough fixes', () => {
+    const walk = Array.from({ length: 30 }, (_, i) => fix(i * 20, i * 15, 60)); // 20 m every 15 s
+    expect(run(walk).mode).toBe('moving');
   });
 });

@@ -1,4 +1,5 @@
 import { scanRings } from './scanline';
+import { type ShapeIndex, buildShapeIndex } from './shapeIndex';
 import { BASE_ZOOM, type LatLng, keyX, keyY, latToY, lonToX, xToLon, yToLat } from './tiles';
 
 /** GeoJSON geometry as returned by OpenStreetMap / Nominatim. */
@@ -64,13 +65,40 @@ function ringContains(ring: Ring, px: number, py: number): boolean {
   return inside;
 }
 
-export function shapeContains(shape: Shape, px: number, py: number): boolean {
+/** The exact even-odd test against every ring. */
+export function shapeContainsExact(shape: Shape, px: number, py: number): boolean {
   const b = shape.bbox;
   if (px < b.minX || px > b.maxX || py < b.minY || py > b.maxY) return false;
   for (const [outer, ...holes] of shape.polygons) {
     if (ringContains(outer, px, py) && !holes.some((h) => ringContains(h, px, py))) return true;
   }
   return false;
+}
+
+/** Shapes with more edges than this get a grid index (built on first use). */
+const INDEX_MIN_VERTICES = 64;
+const indexes = new WeakMap<Shape, ShapeIndex | null>();
+
+function indexFor(shape: Shape): ShapeIndex | null {
+  let index = indexes.get(shape);
+  if (index === undefined) {
+    const vertices = shape.polygons.reduce((n, p) => n + p.reduce((m, r) => m + r.length / 2, 0), 0);
+    index = vertices >= INDEX_MIN_VERTICES ? buildShapeIndex(shape.polygons, shape.bbox) : null;
+    indexes.set(shape, index);
+  }
+  return index;
+}
+
+/**
+ * Whether a point (in base-zoom grid units) is inside the shape. Big shapes
+ * answer from a grid index, falling back to the exact test only near the
+ * border; small ones are tested exactly. Results are the same either way.
+ */
+export function shapeContains(shape: Shape, px: number, py: number): boolean {
+  const b = shape.bbox;
+  if (px < b.minX || px > b.maxX || py < b.minY || py > b.maxY) return false;
+  const known = indexFor(shape)?.lookup(px, py);
+  return known ?? shapeContainsExact(shape, px, py);
 }
 
 /** Whether the center of a base-zoom cell lies inside the shape. */

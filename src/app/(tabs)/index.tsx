@@ -197,15 +197,17 @@ export default function MapScreen() {
           </>
         ) : (
           <View style={styles.cardHeader}>
-            {store.discovering ? <ActivityIndicator color={colors.accent} /> : null}
+            {store.discovering || store.regionsLoading ? <ActivityIndicator color={colors.accent} /> : null}
             <Text style={styles.cardSub}>
-              {store.discovering
-                ? t('map.finding')
-                : store.offline && store.position
-                  ? t('map.noSignal')
-                  : store.position
-                    ? t('map.noRegions')
-                    : t('map.waitingForLocation')}
+              {store.regionsLoading
+                ? t('map.loadingRegions')
+                : store.discovering
+                  ? t('map.finding')
+                  : store.offline && store.position
+                    ? t('map.noSignal')
+                    : store.position
+                      ? t('map.noRegions')
+                      : t('map.waitingForLocation')}
             </Text>
           </View>
         )}

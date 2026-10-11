@@ -123,7 +123,7 @@ export default function RegionsScreen() {
         );
       })}
 
-      {store.ready && store.regions.length === 0 ? (
+      {store.ready && !store.regionsLoading && store.regions.length === 0 ? (
         <Text style={[styles.muted, { marginTop: 24 }]}>
           {store.discovering
             ? t('regions.lookingUp')

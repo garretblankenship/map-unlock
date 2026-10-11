@@ -33,7 +33,10 @@ function phoneMeasurementSystem(): string | null {
  * mirrors it so the map and progress update instantly.
  */
 class ExplorationStore {
+  /** Unlocked cells are loaded (the map can draw and new fixes can be saved). */
   ready = false;
+  /** Regions are still being prepared after launch; lookups wait for them. */
+  regionsLoading = true;
   unlocked = new Set<number>();
   regions: Region[] = [];
   selectedRegionId: string | null = null;
@@ -57,6 +60,11 @@ class ExplorationStore {
 
   private version = 0;
   private listeners = new Set<() => void>();
+  /** While the app is off screen, changes are noted but nothing re-renders. */
+  private visible = true;
+  /** Database rows at or after this time haven't been seen yet (see refreshCells). */
+  private syncedAt = 0;
+  private changedWhileHidden = false;
   private levelCache = new Map<number, Set<number>>();
   private lastDiscovery: { at: LatLng; time: number } | null = null;
   private waterTimer: ReturnType<typeof setTimeout> | null = null;
@@ -99,7 +107,24 @@ class ExplorationStore {
 
   emit() {
     this.version++;
+    if (!this.visible) {
+      this.changedWhileHidden = true;
+      return;
+    }
     this.listeners.forEach((fn) => fn());
+  }
+
+  /**
+   * The app went off or on screen. Off screen, background fixes still update
+   * the data, but rendering waits until the app is visible again, which
+   * catches up in one go.
+   */
+  setVisible(visible: boolean) {
+    this.visible = visible;
+    if (visible && this.changedWhileHidden) {
+      this.changedWhileHidden = false;
+      this.listeners.forEach((fn) => fn());
+    }
   }
 
   /** Units to show, from Settings or the phone's region. */
@@ -127,6 +152,9 @@ class ExplorationStore {
   }
 
   async load() {
+    // Rows written from here on are picked up by refreshCells. A minute of
+    // overlap covers clock jitter; anything seen twice is ignored.
+    this.syncedAt = Date.now() - 60_000;
     const [cells, records, settings] = await Promise.all([
       db.loadCells(),
       db.loadRegions(),
@@ -135,17 +163,35 @@ class ExplorationStore {
     this.settings = { ...DEFAULT_SETTINGS, ...settings };
     this.unlocked = new Set(cells);
     this.levelCache.clear();
-    this.regions = records.map((r) => hydrateRegion(r, this.unlocked));
-    this.selectedRegionId ??= this.defaultSelection();
+    this.regions = [];
+    this.regionsLoading = true;
+    // The fog can draw now; regions follow without holding up the map.
     this.ready = true;
+    this.emit();
+
+    for (const rec of records) {
+      // Let the screen update between regions (a country takes a moment).
+      await new Promise((r) => setTimeout(r, 0));
+      const region = hydrateRegion(rec, this.unlocked);
+      this.regions.push(region);
+      if (rec.totalCells === undefined) void db.saveRegionTotal(region.id, region.totalCells);
+    }
+    this.regionsLoading = false;
+    this.selectedRegionId ??= this.defaultSelection();
     this.emit();
     this.loadRegionWater();
     void this.flushLookups();
   }
 
-  /** Re-reads the database, e.g. after the background task ran while the UI was asleep. */
+  /**
+   * Picks up cells the background task saved while the app wasn't running in
+   * this process. Only rows newer than the last sync are read, not the whole
+   * history, so coming back to the app stays instant.
+   */
   async refreshCells() {
-    const cells = await db.loadCells();
+    const since = this.syncedAt;
+    this.syncedAt = Date.now() - 60_000;
+    const cells = await db.loadCellsSince(since);
     const fresh = cells.filter((k) => !this.unlocked.has(k));
     if (fresh.length) this.applyNewCells(fresh);
   }
@@ -218,8 +264,9 @@ class ExplorationStore {
     let added = false;
     for (const rec of records) {
       if (this.regions.some((r) => r.id === rec.id)) continue;
-      await db.saveRegion(rec);
-      this.regions.push(hydrateRegion(rec, this.unlocked));
+      const region = hydrateRegion(rec, this.unlocked);
+      await db.saveRegion({ ...rec, totalCells: region.totalCells });
+      this.regions.push(region);
       added = true;
     }
     if (added) {
@@ -280,6 +327,7 @@ class ExplorationStore {
    * without signal are looked up once there's a connection again.
    */
   private async maybeDiscover(p: LatLng) {
+    if (this.regionsLoading) return;
     if (this.isCovered(p)) return;
     const last = this.lastDiscovery;
     if (last && Date.now() - last.time < 120_000 && distanceMeters(last.at, p) < 500) return;
@@ -300,7 +348,7 @@ class ExplorationStore {
 
   /** Works through the queued places while there's a connection. */
   async flushLookups() {
-    if (this.discovering || !this.ready) return;
+    if (this.discovering || !this.ready || this.regionsLoading) return;
     let list = await db.updatePendingPlaces((l) => {
       const open = l.filter((p) => !this.isCovered(p));
       return open.length === l.length ? l : open;

@@ -1,5 +1,10 @@
 // Registers the background location task; must load before anything else.
-import { startForegroundTracking, isBackgroundTrackingActive } from '../services/tracking';
+import {
+  isBackgroundTrackingActive,
+  pauseForegroundTracking,
+  resumeForegroundTracking,
+  startForegroundTracking,
+} from '../services/tracking';
 
 import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
 import { Stack } from 'expo-router/stack';
@@ -58,6 +63,16 @@ export default function RootLayout() {
     // Pick up anything the background task unlocked while we were away, and
     // retry lookups that waited for a connection (water, places to look up).
     const sub = AppState.addEventListener('change', (state) => {
+      // Off screen: no on-screen GPS and no rendering. ("inactive" is only a
+      // brief interruption, e.g. a system prompt, so it doesn't count.)
+      if (state === 'background') {
+        pauseForegroundTracking();
+        store.setVisible(false);
+      }
+      if (state === 'active') {
+        store.setVisible(true);
+        void resumeForegroundTracking();
+      }
       if (state === 'active' && store.ready) {
         store.refreshPhonePreferences();
         void store.refreshCells();

@@ -28,6 +28,8 @@ export type RegionRecord = {
   level: RegionLevel;
   geometry: GeoJsonGeometry;
   createdAt: number;
+  /** Exact cells inside, once computed (it's slow for big regions and never changes). */
+  totalCells?: number;
 };
 
 export type Region = RegionRecord & {
@@ -69,7 +71,7 @@ export function hydrateRegion(rec: RegionRecord, unlocked: Iterable<number>): Re
   return {
     ...rec,
     shape,
-    totalCells: shapeCellCount(shape),
+    totalCells: rec.totalCells ?? shapeCellCount(shape),
     waterTiles,
     waterLevel: waterTiles.z + MASK_BITS,
     landCells: null,

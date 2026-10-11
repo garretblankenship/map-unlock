@@ -42,6 +42,7 @@ export const en = {
   // Map screen
   'map.tapToChange': ' · tap to change region',
   'map.finding': 'Finding the areas around you…',
+  'map.loadingRegions': 'Loading your regions…',
   'map.noSignal': 'No signal — exploring still counts. Areas are looked up once you’re back online.',
   'map.noRegions': 'No regions yet — they appear as you explore.',
   'map.waitingForLocation': 'Waiting for your location…',
