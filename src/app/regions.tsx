@@ -148,7 +148,7 @@ export default function RegionsScreen() {
                     </View>
                     <ProgressBar value={s.fraction} height={6} />
                     <Text style={styles.rowSub}>
-                      {s.explored} of {s.total}
+                      {s.explored} of {s.total} of land{s.landPending ? ' (measuring water…)' : ''}
                     </Text>
                   </View>
                 </Pressable>
@@ -170,7 +170,9 @@ export default function RegionsScreen() {
       <Pressable onPress={confirmReset} style={styles.reset}>
         <Text style={styles.resetText}>Reset all progress</Text>
       </Pressable>
-      <Text style={styles.attribution}>Boundaries © OpenStreetMap contributors</Text>
+      <Text style={styles.attribution}>
+        Boundaries and water © OpenStreetMap contributors · water tiles by OpenFreeMap / OpenMapTiles
+      </Text>
     </ScrollView>
   );
 }

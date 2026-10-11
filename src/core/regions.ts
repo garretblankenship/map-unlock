@@ -1,4 +1,6 @@
-import { GeoJsonGeometry, Shape, shapeCellCount, shapeContainsCell, shapeFromGeoJson } from './geometry';
+import { GeoJsonGeometry, Shape, scanShape, shapeCellCount, shapeContainsCell, shapeFromGeoJson } from './geometry';
+import { BASE_ZOOM } from './tiles';
+import { MASK_BITS, TileRange, WATER_TILE_MAX_ZOOM, WaterLookup, isWaterCell, tileCount } from './water';
 
 /** Administrative levels we track, from smallest to largest. */
 export const REGION_LEVELS = ['neighbourhood', 'city', 'state', 'country'] as const;
@@ -23,29 +25,93 @@ export type RegionRecord = {
 
 export type Region = RegionRecord & {
   shape: Shape;
-  /** Number of base cells inside the region (its area in cells). */
+  /** Number of base cells inside the region, land and water. */
   totalCells: number;
-  /** Number of unlocked base cells inside the region. */
+  /** Water tiles covering the region, and the grid level they resolve water at. */
+  waterTiles: TileRange;
+  waterLevel: number;
+  /** Land cells inside the region; null until its water data has loaded. */
+  landCells: number | null;
+  /** Unlocked cells inside the region (land only, once water is known). */
   unlockedCells: number;
 };
 
+/** Small regions get per-cell water; huge ones a coarser estimate. */
+const MAX_REGION_WATER_TILES = 64;
+
+export function regionWaterTiles(shape: Shape): TileRange {
+  const b = shape.bbox;
+  for (let z = WATER_TILE_MAX_ZOOM; ; z--) {
+    const d = 2 ** (BASE_ZOOM - z);
+    const range = {
+      z,
+      x0: Math.floor(b.minX / d),
+      x1: Math.floor(b.maxX / d),
+      y0: Math.floor(b.minY / d),
+      y1: Math.floor(b.maxY / d),
+    };
+    if (z === 0 || tileCount(range) <= MAX_REGION_WATER_TILES) return range;
+  }
+}
+
 export function hydrateRegion(rec: RegionRecord, unlocked: Iterable<number>): Region {
   const shape = shapeFromGeoJson(rec.geometry);
+  const waterTiles = regionWaterTiles(shape);
   let count = 0;
   for (const key of unlocked) if (shapeContainsCell(shape, key)) count++;
-  return { ...rec, shape, totalCells: shapeCellCount(shape), unlockedCells: count };
+  return {
+    ...rec,
+    shape,
+    totalCells: shapeCellCount(shape),
+    waterTiles,
+    waterLevel: waterTiles.z + MASK_BITS,
+    landCells: null,
+    unlockedCells: count,
+  };
+}
+
+/**
+ * Switches a region to land-only scoring once its water tiles are loaded:
+ * water inside the boundary no longer counts toward the total, and unlocked
+ * water cells (ferries, bridges) no longer count as progress.
+ */
+export function applyWater(region: Region, unlocked: Iterable<number>, water: WaterLookup): void {
+  const level = region.waterLevel;
+  let waterCells = 0;
+  const scanned = scanShape(region.shape, level, (row, start, end) => {
+    for (let x = start; x < end; x++) if (water(level, x, row)) waterCells++;
+  });
+  if (!scanned) return;
+  // Each water cell at a coarser level stands for many base cells.
+  const perCell = 4 ** (BASE_ZOOM - level);
+  region.landCells = Math.max(1, region.totalCells - waterCells * perCell);
+
+  let count = 0;
+  for (const key of unlocked) {
+    if (shapeContainsCell(region.shape, key) && !isWaterCell(water, key, level)) count++;
+  }
+  region.unlockedCells = count;
 }
 
 /** Adds newly unlocked cells to a region's tally. Returns true if it changed. */
-export function addCellsToRegion(region: Region, newKeys: number[]): boolean {
+export function addCellsToRegion(region: Region, newKeys: number[], water?: WaterLookup): boolean {
   let added = 0;
-  for (const key of newKeys) if (shapeContainsCell(region.shape, key)) added++;
+  for (const key of newKeys) {
+    if (!shapeContainsCell(region.shape, key)) continue;
+    if (region.landCells !== null && water && isWaterCell(water, key, region.waterLevel)) continue;
+    added++;
+  }
   region.unlockedCells += added;
   return added > 0;
 }
 
-export function completion(region: Pick<Region, 'totalCells' | 'unlockedCells'>): number {
-  return Math.min(1, region.unlockedCells / region.totalCells);
+/** Cells that count toward 100%: land, or everything until water is known. */
+export function scoredCells(region: Pick<Region, 'totalCells' | 'landCells'>): number {
+  return region.landCells ?? region.totalCells;
+}
+
+export function completion(region: Pick<Region, 'totalCells' | 'landCells' | 'unlockedCells'>): number {
+  return Math.min(1, region.unlockedCells / scoredCells(region));
 }
 
 /** Human-friendly percentage that still shows progress in huge regions. */

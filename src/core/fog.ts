@@ -189,21 +189,31 @@ export function fogFromGrid(
   return [sheet, ...patches.map(({ outer, holes }) => ({ outer, holes }))];
 }
 
+/** The grid level and cell range the fog is computed over for a viewport. */
+export function fogWindow(viewport: Viewport): { level: number; x0: number; x1: number; y0: number; y1: number } {
+  const level = chooseLevel(viewport);
+  const w = padded(viewport);
+  const max = 2 ** level - 1;
+  return {
+    level,
+    x0: Math.max(0, Math.floor(lonToX(w.west, level))),
+    x1: Math.min(max, Math.floor(lonToX(w.east, level))),
+    y0: Math.max(0, Math.floor(latToY(w.north, level))),
+    y1: Math.min(max, Math.floor(latToY(w.south, level))),
+  };
+}
+
 /**
  * Fog for a viewport. `cellsAtLevel(level)` returns the unlocked cells at
- * that zoom level (see ExplorationStore, which caches these).
+ * that zoom level (see ExplorationStore, which caches these). Cells that
+ * `isWater` reports as water are never fogged.
  */
 export function fogForViewport(
   viewport: Viewport,
   cellsAtLevel: (level: number) => Set<number>,
+  isWater?: (level: number, x: number, y: number) => boolean,
 ): FogResult {
-  const level = chooseLevel(viewport);
-  const w = padded(viewport);
-  const max = 2 ** level - 1;
-  const x0 = Math.max(0, Math.floor(lonToX(w.west, level)));
-  const x1 = Math.min(max, Math.floor(lonToX(w.east, level)));
-  const y0 = Math.max(0, Math.floor(latToY(w.north, level)));
-  const y1 = Math.min(max, Math.floor(latToY(w.south, level)));
+  const { level, x0, x1, y0, y1 } = fogWindow(viewport);
 
   // One cell of always-locked border around the window.
   const gw = x1 - x0 + 3;
@@ -222,6 +232,14 @@ export function fogForViewport(
         for (let x = x0; x <= x1; x++) {
           if (cells.has(cellKey(x, y))) grid[(y - y0 + 1) * gw + (x - x0 + 1)] = 1;
         }
+      }
+    }
+  }
+  if (isWater) {
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        const i = (y - y0 + 1) * gw + (x - x0 + 1);
+        if (!grid[i] && isWater(level, x, y)) grid[i] = 1;
       }
     }
   }

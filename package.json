@@ -4,6 +4,7 @@
   "main": "expo-router/entry",
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
+    "@mapbox/vector-tile": "^3.0.0",
     "expo": "~57.0.27",
     "expo-constants": "~57.0.21",
     "expo-linking": "~57.0.12",
@@ -12,6 +13,8 @@
     "expo-sqlite": "~57.0.4",
     "expo-status-bar": "~57.0.1",
     "expo-task-manager": "~57.0.21",
+    "pako": "^2.1.0",
+    "pbf": "^5.1.2",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
@@ -20,6 +23,7 @@
     "react-native-screens": "~4.26.0"
   },
   "devDependencies": {
+    "@types/pako": "^2.0.4",
     "@types/react": "~19.2.2",
     "typescript": "~6.0.3",
     "vitest": "^5.0.3"

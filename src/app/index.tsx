@@ -39,8 +39,11 @@ export default function MapScreen() {
   const unlockedCount = store.unlocked.size;
   const fog = useMemo(
     () => store.fog(toViewport(mapRegion)),
-    [mapRegion, unlockedCount, store.ready],
+    [mapRegion, unlockedCount, store.ready, store.waterVersion],
   );
+
+  // Water is never fogged; fetch it for whatever is on screen.
+  useEffect(() => store.requestWater(toViewport(mapRegion)), [mapRegion]);
 
   const region = store.selectedRegion;
   const outlines = useMemo(() => (region ? shapeOutlines(region.shape) : []), [region]);
@@ -137,7 +140,8 @@ export default function MapScreen() {
             </View>
             <ProgressBar value={stats.fraction} />
             <Text style={styles.cardSub}>
-              {stats.explored} of {stats.total} unlocked · tap to change region
+              {stats.explored} of {stats.total} of land unlocked
+              {stats.landPending ? ' (measuring water…)' : ''} · tap to change region
             </Text>
           </>
         ) : (

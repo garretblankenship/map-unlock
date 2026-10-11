@@ -25,9 +25,13 @@ export default function RootLayout() {
       }
     })();
 
-    // Pick up anything the background task unlocked while we were away.
+    // Pick up anything the background task unlocked while we were away, and
+    // retry water lookups that failed (e.g. while offline).
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active' && store.ready) void store.refreshCells();
+      if (state === 'active' && store.ready) {
+        void store.refreshCells();
+        store.loadRegionWater();
+      }
     });
     return () => {
       cancelled = true;

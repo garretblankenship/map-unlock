@@ -1,11 +1,13 @@
 import { useSyncExternalStore } from 'react';
 
-import { Viewport, fogForViewport } from '../core/fog';
+import { Viewport, fogForViewport, fogWindow } from '../core/fog';
 import { shapeContains } from '../core/geometry';
-import { Region, RegionRecord, addCellsToRegion, hydrateRegion } from '../core/regions';
+import { Region, RegionRecord, addCellsToRegion, applyWater, hydrateRegion } from '../core/regions';
+import { tilesForCells } from '../core/water';
 import { BASE_ZOOM, LatLng, distanceMeters, latToY, lonToX, parentKey } from '../core/tiles';
 import * as db from '../services/db';
 import { regionsAt } from '../services/boundaries';
+import { water } from '../services/water';
 
 /**
  * In-memory game state shared by every screen. The database is the source of
@@ -26,11 +28,25 @@ class ExplorationStore {
   backgroundTracking = false;
   discovering = false;
   lastError: string | null = null;
+  /** Bumped as water tiles arrive, so the fog can be redrawn. */
+  waterVersion = 0;
 
   private version = 0;
   private listeners = new Set<() => void>();
   private levelCache = new Map<number, Set<number>>();
   private lastDiscovery: { at: LatLng; time: number } | null = null;
+  private waterTimer: ReturnType<typeof setTimeout> | null = null;
+
+  constructor() {
+    // Batch redraws while a screenful of water tiles streams in.
+    water.onChange(() => {
+      this.waterTimer ??= setTimeout(() => {
+        this.waterTimer = null;
+        this.waterVersion++;
+        this.emit();
+      }, 150);
+    });
+  }
 
   subscribe = (fn: () => void) => {
     this.listeners.add(fn);
@@ -52,6 +68,7 @@ class ExplorationStore {
     this.selectedRegionId ??= this.defaultSelection();
     this.ready = true;
     this.emit();
+    this.loadRegionWater();
   }
 
   /** Re-reads the database, e.g. after the background task ran while the UI was asleep. */
@@ -69,7 +86,7 @@ class ExplorationStore {
     for (const [level, set] of this.levelCache) {
       for (const k of fresh) set.add(parentKey(k, BASE_ZOOM - level));
     }
-    for (const r of this.regions) addCellsToRegion(r, fresh);
+    for (const r of this.regions) addCellsToRegion(r, fresh, water.lookup);
     this.emit();
   }
 
@@ -86,7 +103,32 @@ class ExplorationStore {
   };
 
   fog(viewport: Viewport) {
-    return fogForViewport(viewport, this.cellsAtLevel);
+    return fogForViewport(viewport, this.cellsAtLevel, water.lookup);
+  }
+
+  /** Fetches water for the area on screen so it can be shown unfogged. */
+  requestWater(viewport: Viewport) {
+    const w = fogWindow(viewport);
+    const range = tilesForCells(w.level, w.x0, w.x1, w.y0, w.y1);
+    if (!water.has(range)) water.ensure(range).catch(() => undefined);
+  }
+
+  /**
+   * Switches regions to land-only scoring once their water is known. Safe to
+   * call repeatedly; regions that failed (e.g. offline) are retried.
+   */
+  loadRegionWater() {
+    for (const r of this.regions) {
+      if (r.landCells !== null) continue;
+      water
+        .ensure(r.waterTiles)
+        .then(() => {
+          if (r.landCells !== null || !this.regions.includes(r)) return;
+          applyWater(r, this.unlocked, water.lookup);
+          this.emit();
+        })
+        .catch(() => undefined);
+    }
   }
 
   get selectedRegion(): Region | null {
@@ -110,6 +152,7 @@ class ExplorationStore {
     if (added) {
       this.selectedRegionId ??= this.defaultSelection();
       this.emit();
+      this.loadRegionWater();
     }
   }
 

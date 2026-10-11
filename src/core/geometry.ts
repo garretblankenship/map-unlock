@@ -1,3 +1,4 @@
+import { scanRings } from './scanline';
 import { BASE_ZOOM, LatLng, keyX, keyY, latToY, lonToX, xToLon, yToLat } from './tiles';
 
 /** GeoJSON geometry as returned by OpenStreetMap / Nominatim. */
@@ -103,45 +104,34 @@ export function shapeAreaInCells(shape: Shape): number {
 const MAX_SCAN_ROWS = 2_000_000;
 
 /**
+ * Calls onSpan(row, xStart, xEndExclusive) for each run of cells at `level`
+ * whose centers are inside the shape, using the same inside test as
+ * shapeContainsCell. Returns false (without scanning) if the shape is too
+ * tall to scan at that level.
+ */
+export function scanShape(
+  shape: Shape,
+  level: number,
+  onSpan: (row: number, xStart: number, xEnd: number) => void,
+): boolean {
+  const scale = 2 ** (level - BASE_ZOOM);
+  if ((shape.bbox.maxY - shape.bbox.minY) * scale > MAX_SCAN_ROWS) return false;
+  // Parts of a multipolygon don't overlap, so each can be filled on its own.
+  for (const rings of shape.polygons) scanRings(rings, onSpan, scale);
+  return true;
+}
+
+/**
  * Exact number of base cells whose centers are inside the shape (the same
  * test used when crediting unlocked cells), so unlocking every cell in a
- * region reaches exactly 100%. Uses a scanline over cell-center rows, which
- * costs time proportional to the boundary rather than the area.
+ * region reaches exactly 100%.
  */
 export function shapeCellCount(shape: Shape): number {
-  const rowStart = Math.ceil(shape.bbox.minY - 0.5);
-  const rows = Math.ceil(shape.bbox.maxY - 0.5) - rowStart;
-  if (!(rows > 0)) return 1;
-  if (rows > MAX_SCAN_ROWS) return shapeAreaInCells(shape);
-
   let total = 0;
-  for (const rings of shape.polygons) {
-    const crossings: number[][] = [];
-    for (const ring of rings) {
-      const n = ring.length / 2;
-      for (let i = 0, j = n - 1; i < n; j = i++) {
-        const xi = ring[i * 2];
-        const yi = ring[i * 2 + 1];
-        const xj = ring[j * 2];
-        const yj = ring[j * 2 + 1];
-        if (yi === yj) continue;
-        const lo = Math.min(yi, yj);
-        const hi = Math.max(yi, yj);
-        for (let r = Math.ceil(lo - 0.5); r < Math.ceil(hi - 0.5); r++) {
-          const py = r + 0.5;
-          (crossings[r - rowStart] ??= []).push(xi + ((py - yi) * (xj - xi)) / (yj - yi));
-        }
-      }
-    }
-    for (const row of crossings) {
-      if (!row) continue;
-      row.sort((a, b) => a - b);
-      for (let k = 0; k + 1 < row.length; k += 2) {
-        total += Math.ceil(row[k + 1] - 0.5) - Math.ceil(row[k] - 0.5);
-      }
-    }
-  }
-  return Math.max(1, total);
+  const ok = scanShape(shape, BASE_ZOOM, (_row, start, end) => {
+    total += end - start;
+  });
+  return ok ? Math.max(1, total) : shapeAreaInCells(shape);
 }
 
 /** Ring converted back to map coordinates, for drawing outlines. */

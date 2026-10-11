@@ -7,6 +7,7 @@ import type { RegionRecord } from '../core/regions';
  * Local persistence. Everything stays on the device:
  *  - cells:   every unlocked base-zoom cell
  *  - regions: boundaries the user has discovered or added
+ *  - water:   cached water masks per map tile (see core/water.ts)
  *  - meta:    small key/value state (last GPS fix, settings)
  */
 
@@ -26,6 +27,7 @@ export function getDb(): SQLite.SQLiteDatabase {
       geometry TEXT NOT NULL,
       created_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS water (tile TEXT PRIMARY KEY NOT NULL, mask BLOB, fetched_at INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY NOT NULL, v TEXT NOT NULL);
   `);
   return db;
@@ -90,6 +92,21 @@ export async function saveRegion(r: RegionRecord): Promise<void> {
 
 export async function deleteRegion(id: string): Promise<void> {
   await getDb().runAsync('DELETE FROM regions WHERE id = ?', id);
+}
+
+/** Cached water mask for a tile: undefined if never fetched, null if all land. */
+export async function loadWaterMask(tile: string): Promise<Uint8Array | null | undefined> {
+  const row = await getDb().getFirstAsync<{ mask: Uint8Array | null }>('SELECT mask FROM water WHERE tile = ?', tile);
+  return row ? row.mask : undefined;
+}
+
+export async function saveWaterMask(tile: string, mask: Uint8Array | null): Promise<void> {
+  await getDb().runAsync(
+    'INSERT OR REPLACE INTO water (tile, mask, fetched_at) VALUES (?, ?, ?)',
+    tile,
+    mask,
+    Date.now(),
+  );
 }
 
 export async function getMeta<T>(k: string): Promise<T | null> {

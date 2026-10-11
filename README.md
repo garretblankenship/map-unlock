@@ -15,13 +15,20 @@ neighbourhood, city, state and country you visit gets a progress score
   unlock the map, so highways and rail corridors can be completed too.
   Fixes worse than 40m accuracy are ignored, and so is movement faster
   than ~250 km/h (flights and GPS glitches).
+- **Water is never fogged.** Oceans, harbours, lakes and rivers come from
+  the OpenStreetMap water layer (via OpenFreeMap vector tiles, no API key
+  needed). They're drawn unlocked from the start and are left out of every
+  region's score, so percentages are **land only** and 100% is reachable
+  on land. Water tiles are downloaded once and cached on the device.
 - **Fog.** The gray overlay is computed for whatever part of the map is on
   screen. Unlocked cells are traced into outlines and cut out of the fog as
   holes. Zoomed out, the grid coarsens so it stays fast at every scale.
 - **Regions.** When you arrive somewhere new, the app looks up the
   administrative boundaries around you (neighbourhood/suburb, city, state,
-  country) from OpenStreetMap. Completion = unlocked cells inside the
-  boundary ÷ all cells inside the boundary. You can also search for any
+  country) from OpenStreetMap. Completion = unlocked land cells inside the
+  boundary ÷ all land cells inside the boundary. Small regions measure
+  water cell by cell. Very large ones (states, countries) use a coarser
+  water estimate. You can also search for any
   place (e.g. "Sydney") and add it as a goal.
 - **Storage.** Everything is stored on the device in SQLite. There are no
   accounts and no servers.
@@ -65,7 +72,7 @@ iOS uses Apple Maps and needs no key.
 ### Tests
 
 ```bash
-npm test           # grid, reveal, fog tracing and completion maths
+npm test           # grid, reveal, fog tracing, water masks and completion maths
 npm run typecheck
 ```
 
@@ -79,10 +86,13 @@ src/
     reveal.ts       GPS fix → unlocked cells (radius, gap filling, filters)
     fog.ts          unlocked cells → fog polygons with holes for the viewport
     geometry.ts     boundary polygons, point-in-polygon, exact cell counts
+    scanline.ts     polygon → grid cell rasterization
+    water.ts        vector-tile water layer → per-cell water masks
     regions.ts      region completion and formatting
   services/
     tracking.ts     foreground + background location (expo-location)
     boundaries.ts   OpenStreetMap/Nominatim boundary lookup & search
+    water.ts        water tile download + cache (OpenFreeMap)
     db.ts           SQLite persistence
     demo.ts         simulated walk for development
   state/store.ts    shared in-memory state for the UI
@@ -93,6 +103,9 @@ src/
 - **Boundary service.** The public Nominatim server allows 1 request/second
   and isn't meant for app traffic at scale. Self-host Nominatim, or
   precompute boundary files and serve them from a CDN.
+- **Water tiles.** OpenFreeMap is free and asks for no key, but it's a
+  community service. At scale, consider hosting the tiles yourself (e.g. a
+  Protomaps/PMTiles file on a CDN).
 - **Battery.** Background tracking uses high-accuracy GPS. Consider
   lowering accuracy, or pausing when the phone is stationary.
 - **Store review.** Apple and Google both scrutinize "Always" location

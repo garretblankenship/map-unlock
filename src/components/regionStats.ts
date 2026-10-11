@@ -1,4 +1,4 @@
-import { Region, completion, formatArea, formatPercent } from '../core/regions';
+import { Region, completion, formatArea, formatPercent, scoredCells } from '../core/regions';
 import { BASE_ZOOM, cellSizeMeters, yToLat } from '../core/tiles';
 
 /** Display strings for a region's progress. */
@@ -10,6 +10,8 @@ export function regionStats(r: Region) {
     fraction,
     percent: formatPercent(fraction),
     explored: formatArea(r.unlockedCells * cellArea),
-    total: formatArea(r.totalCells * cellArea),
+    total: formatArea(scoredCells(r) * cellArea),
+    /** Water hasn't loaded yet, so the total still includes it. */
+    landPending: r.landCells === null,
   };
 }
