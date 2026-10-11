@@ -4,11 +4,13 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { UnitPreference } from '../core/units';
 import { t } from '../i18n';
 import { useStore } from '../state/store';
-import { colors } from '../theme';
+import { makeStyles, useColors } from '../theme';
 
 const UNIT_OPTIONS: UnitPreference[] = ['auto', 'metric', 'imperial'];
 
 export default function SettingsScreen() {
+  const colors = useColors();
+  const styles = useStyles();
   const store = useStore();
 
   const unitLabel = (u: UnitPreference) =>
@@ -67,7 +69,7 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.background },
   sectionTitle: {
     fontSize: 13,
@@ -90,4 +92,4 @@ const styles = StyleSheet.create({
   optionTitle: { fontSize: 16, fontWeight: '600', color: colors.text },
   optionDetail: { fontSize: 12, color: colors.muted, marginTop: 2 },
   attribution: { fontSize: 12, color: colors.muted },
-});
+}));

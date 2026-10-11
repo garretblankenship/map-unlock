@@ -1,13 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { AppState, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AppState, Linking, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { BackgroundStep } from '../core/permissions';
 import { TextKey, t } from '../i18n';
 import { getBackgroundStep, startBackgroundTracking } from '../services/tracking';
-import { colors } from '../theme';
+import { makeStyles, useColors } from '../theme';
 
 /**
  * Explains background location before the system asks for it. Apple and
@@ -15,6 +15,8 @@ import { colors } from '../theme';
  * why. Opened from the map's background-exploring switch.
  */
 export default function BackgroundPermissionScreen() {
+  const colors = useColors();
+  const styles = useStyles();
   const { step } = useLocalSearchParams<{ step?: BackgroundStep }>();
   const insets = useSafeAreaInsets();
   const blocked = step === 'openSettings';
@@ -79,7 +81,7 @@ export default function BackgroundPermissionScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { padding: 24, gap: 16 },
   title: { fontSize: 24, fontWeight: '800', color: colors.text, textAlign: 'center' },
@@ -89,7 +91,7 @@ const styles = StyleSheet.create({
   pointText: { flex: 1, fontSize: 14, color: colors.text, lineHeight: 20 },
   hint: { fontSize: 13, color: colors.muted, textAlign: 'center' },
   primary: { backgroundColor: colors.accent, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
-  primaryText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  primaryText: { color: colors.onAccent, fontSize: 16, fontWeight: '700' },
   secondary: { paddingVertical: 10, alignItems: 'center' },
   secondaryText: { color: colors.muted, fontSize: 15, fontWeight: '600' },
-});
+}));

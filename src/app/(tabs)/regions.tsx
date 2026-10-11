@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ProgressBar } from '../../components/ProgressBar';
@@ -11,9 +11,11 @@ import { REGION_LEVELS, Region } from '../../core/regions';
 import { t } from '../../i18n';
 import { offlineAreas } from '../../services/offlineAreas';
 import { useStore } from '../../state/store';
-import { colors } from '../../theme';
+import { makeStyles, useColors } from '../../theme';
 
 export default function RegionsScreen() {
+  const colors = useColors();
+  const styles = useStyles();
   const store = useStore();
   const insets = useSafeAreaInsets();
   const here = new Set(store.position ? store.regionsAt(store.position).map((r) => r.id) : []);
@@ -137,7 +139,7 @@ export default function RegionsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.background },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontSize: 30, fontWeight: '800', color: colors.text },
@@ -169,4 +171,4 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   muted: { fontSize: 13, color: colors.muted },
-});
+}));

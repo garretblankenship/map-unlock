@@ -34,6 +34,10 @@ neighbourhood, city, state and country you visit gets a progress score
   drops to low-power location after ~3 minutes standing still, waking up
   again once you move ~75 m (`src/core/motion.ts`). Updates never pause on
   their own, since iOS wouldn't resume them after a rest stop.
+- **Dark mode.** The app and the map follow the phone's light/dark
+  setting (`src/theme.ts`, `assets/map/style-dark.json`). The dark map uses
+  the same tiles, icons and fonts as the light one, so saved offline areas
+  work in both.
 - **Units.** Areas show in km² / m² or mi² / acres, following the phone's
   region (US and UK get imperial). Settings can override it.
 - **Storage and backups.** Everything is stored on the device in SQLite;
@@ -79,8 +83,9 @@ can watch the fog clear without going outside.
 
 ### Map style
 
-The map style is `assets/map/style.json`: OpenFreeMap's Liberty style,
-rebuilt by `node scripts/make-map-style.mjs` to use version-less tile URLs.
+The map styles are `assets/map/style.json` (OpenFreeMap's Liberty) and
+`style-dark.json` (OpenFreeMap's Dark), rebuilt by
+`node scripts/make-map-style.mjs liberty|dark` to use version-less tile URLs.
 (The stock style's tile URLs change with every weekly data release, which
 would leave saved areas blank offline after the next release.)
 

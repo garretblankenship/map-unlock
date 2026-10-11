@@ -1,8 +1,9 @@
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
-import { colors } from '../theme';
+import { makeStyles } from '../theme';
 
 export function ProgressBar({ value, height = 8 }: { value: number; height?: number }) {
+  const styles = useStyles();
   // Keep a sliver visible once any progress exists, even in enormous regions.
   const pct = value > 0 ? Math.max(1.5, Math.min(100, value * 100)) : 0;
   return (
@@ -12,7 +13,7 @@ export function ProgressBar({ value, height = 8 }: { value: number; height?: num
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   track: { backgroundColor: colors.accentSoft, overflow: 'hidden', width: '100%' },
   fill: { backgroundColor: colors.accent, height: '100%' },
-});
+}));

@@ -10,7 +10,16 @@ import {
 } from '@maplibre/maplibre-react-native';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, NativeSyntheticEvent, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  NativeSyntheticEvent,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  useColorScheme,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ProgressBar } from '../../components/ProgressBar';
@@ -20,16 +29,18 @@ import { shapeBoundsLatLng, shapeOutlines } from '../../core/geometry';
 import { Bounds, estimateDownload, fogToGeoJSON, formatBytes, linesToGeoJSON, viewportFromBounds } from '../../core/mapgeo';
 import { t } from '../../i18n';
 import { startDemoWalk, stopDemoWalk } from '../../services/demo';
-import { MAP_STYLE } from '../../services/mapStyle';
+import { MAP_STYLE, MAP_STYLE_DARK } from '../../services/mapStyle';
 import { offlineAreas } from '../../services/offlineAreas';
 import { getBackgroundStep, startBackgroundTracking, stopBackgroundTracking } from '../../services/tracking';
 import { useStore } from '../../state/store';
-import { colors } from '../../theme';
+import { makeStyles, useColors } from '../../theme';
 
 const WORLD: Viewport = { north: 70, south: -55, east: 180, west: -180 };
 const STREET_ZOOM = 15;
 
 export default function MapScreen() {
+  const colors = useColors();
+  const styles = useStyles();
   const store = useStore();
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraRef>(null);
@@ -129,7 +140,7 @@ export default function MapScreen() {
     <View style={styles.container}>
       <MapView
         style={StyleSheet.absoluteFill}
-        mapStyle={MAP_STYLE}
+        mapStyle={useColorScheme() === 'dark' ? MAP_STYLE_DARK : MAP_STYLE}
         onRegionDidChange={onRegionDidChange}
         onDidFinishLoadingStyle={() => setMapReady(true)}
         touchRotate={false}
@@ -239,7 +250,7 @@ const shadow = {
   elevation: 4,
 };
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.background },
   card: {
     position: 'absolute',
@@ -260,7 +271,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 16,
     right: 16,
-    backgroundColor: '#FEF3F2',
+    backgroundColor: colors.dangerSoft,
     borderRadius: 12,
     padding: 12,
     ...shadow,
@@ -289,4 +300,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...shadow,
   },
-});
+}));

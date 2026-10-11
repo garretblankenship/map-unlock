@@ -1,6 +1,7 @@
 import type { StyleSpecification } from '@maplibre/maplibre-react-native';
 import Constants from 'expo-constants';
 
+import bundledDarkStyle from '../../assets/map/style-dark.json';
 import bundledStyle from '../../assets/map/style.json';
 
 /**
@@ -19,6 +20,8 @@ import bundledStyle from '../../assets/map/style.json';
  * when building (read in app.config.ts).
  */
 export const MAP_STYLE = bundledStyle as unknown as StyleSpecification;
+/** Dark mode. Uses the same tiles, sprites and fonts, so offline downloads cover it too. */
+export const MAP_STYLE_DARK = bundledDarkStyle as unknown as StyleSpecification;
 
 const DEFAULT_STYLE_URL =
   'https://cdn.jsdelivr.net/gh/garretblankenship/map-unlock@dccba60cf3d485feff1666ccdabc5cbc0220ebc3/assets/map/style.json';

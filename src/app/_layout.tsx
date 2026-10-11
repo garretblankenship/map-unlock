@@ -1,18 +1,44 @@
 // Registers the background location task; must load before anything else.
 import { startForegroundTracking, isBackgroundTrackingActive } from '../services/tracking';
 
+import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
 import { Stack } from 'expo-router/stack';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { AppState } from 'react-native';
+import { AppState, useColorScheme } from 'react-native';
 
 import { t } from '../i18n';
 import { startNetworkMonitor } from '../services/net';
 import { offlineAreas } from '../services/offlineAreas';
 import { store } from '../state/store';
-import { colors } from '../theme';
+import { darkColors, lightColors } from '../theme';
+
+/** Navigation chrome (tab bar, headers, screen backgrounds) in the app's colors. */
+const navLight = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: lightColors.accent,
+    background: lightColors.background,
+    card: lightColors.card,
+    text: lightColors.text,
+    border: lightColors.border,
+  },
+};
+const navDark = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    primary: darkColors.accent,
+    background: darkColors.background,
+    card: darkColors.card,
+    text: darkColors.text,
+    border: darkColors.border,
+  },
+};
 
 export default function RootLayout() {
+  const dark = useColorScheme() === 'dark';
   useEffect(() => {
     let cancelled = false;
     const stopNetworkMonitor = startNetworkMonitor();
@@ -47,13 +73,13 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <>
-      <StatusBar style="dark" />
-      <Stack screenOptions={{ headerTintColor: colors.accent }}>
+    <ThemeProvider value={dark ? navDark : navLight}>
+      <StatusBar style="auto" />
+      <Stack screenOptions={{ headerTintColor: (dark ? darkColors : lightColors).accent }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="background-permission" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="settings" options={{ title: t('settings.title'), headerBackTitle: t('regions.title') }} />
       </Stack>
-    </>
+    </ThemeProvider>
   );
 }

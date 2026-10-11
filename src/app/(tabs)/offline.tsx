@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ProgressBar } from '../../components/ProgressBar';
@@ -7,7 +7,7 @@ import { formatBytes } from '../../core/mapgeo';
 import { t } from '../../i18n';
 import { OfflineArea, offlineAreas, useOfflineAreas } from '../../services/offlineAreas';
 import { useStore } from '../../state/store';
-import { colors } from '../../theme';
+import { makeStyles, useColors } from '../../theme';
 
 function statusLine(a: OfflineArea, offline: boolean): string {
   const size = a.bytes > 0 ? ` · ${formatBytes(a.bytes)}` : '';
@@ -25,6 +25,8 @@ function statusLine(a: OfflineArea, offline: boolean): string {
 }
 
 export default function OfflineScreen() {
+  const colors = useColors();
+  const styles = useStyles();
   const store = useStore();
   const areas = useOfflineAreas();
   const insets = useSafeAreaInsets();
@@ -90,7 +92,7 @@ export default function OfflineScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.background },
   title: { fontSize: 30, fontWeight: '800', color: colors.text },
   subtitle: { fontSize: 14, color: colors.muted, marginTop: 4, marginBottom: 16 },
@@ -111,4 +113,4 @@ const styles = StyleSheet.create({
   muted: { fontSize: 13, color: colors.muted },
   error: { color: colors.danger, marginBottom: 12 },
   note: { marginTop: 24, fontSize: 12, color: colors.muted },
-});
+}));
