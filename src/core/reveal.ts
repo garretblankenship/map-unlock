@@ -16,10 +16,16 @@ export const REVEAL_SETTINGS = {
   radiusMeters: 50,
   /** Fixes less accurate than this are ignored so GPS drift can't unlock areas. */
   maxAccuracyMeters: 40,
-  /** Faster than this (≈25 km/h) is treated as driving/transit and doesn't count. */
-  maxSpeedMps: 7,
-  /** Gaps longer than this aren't filled in, since we don't know the route taken. */
-  maxGapMeters: 250,
+  /**
+   * Walking, cycling, driving and trains all count. Faster than this
+   * (≈250 km/h) is treated as flying or a GPS glitch and doesn't.
+   */
+  maxSpeedMps: 70,
+  /**
+   * Gaps longer than this aren't filled in, since we don't know the route
+   * taken. Long enough to bridge sparse updates at highway speeds.
+   */
+  maxGapMeters: 1000,
 };
 
 /** All base-zoom cells whose centers lie within `radiusMeters` of the point. */
@@ -50,7 +56,8 @@ export function isUsableFix(fix: Fix): boolean {
 /**
  * Cells unlocked by moving from `prev` to `cur`. The straight line between
  * the two fixes is filled in when the gap is short and the implied speed
- * plausible, so sparse GPS updates still leave a continuous trail.
+ * plausible for ground travel, so sparse GPS updates still leave a
+ * continuous trail.
  */
 export function cellsForMove(prev: Fix | null, cur: Fix): number[] {
   const { radiusMeters, maxGapMeters, maxSpeedMps } = REVEAL_SETTINGS;

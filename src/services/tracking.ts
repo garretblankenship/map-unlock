@@ -105,7 +105,8 @@ export async function startBackgroundTracking(): Promise<boolean> {
     await Location.startLocationUpdatesAsync(BACKGROUND_TASK, {
       accuracy: Location.Accuracy.High,
       distanceInterval: 10,
-      activityType: Location.ActivityType.Fitness,
+      // Not "Fitness": that tunes iOS for pedestrians, and driving counts too.
+      activityType: Location.ActivityType.Other,
       pausesUpdatesAutomatically: true,
       showsBackgroundLocationIndicator: true,
       foregroundService: {

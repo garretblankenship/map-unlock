@@ -11,8 +11,10 @@ neighbourhood, city, state and country you visit gets a progress score
 - **Grid.** The world is divided into ~30m square cells (Web Mercator zoom-20
   tiles). Anything within **50m** of where you've been is unlocked. If GPS
   updates arrive sparsely, the gap between two points is filled in.
-- **Anti-cheat filters.** Fixes worse than 40m accuracy are ignored. So is
-  movement faster than ~25 km/h, so driving and trains don't count.
+- **Any ground travel counts.** Walking, cycling, driving and trains all
+  unlock the map, so highways and rail corridors can be completed too.
+  Fixes worse than 40m accuracy are ignored, and so is movement faster
+  than ~250 km/h (flights and GPS glitches).
 - **Fog.** The gray overlay is computed for whatever part of the map is on
   screen. Unlocked cells are traced into outlines and cut out of the fog as
   holes. Zoomed out, the grid coarsens so it stays fast at every scale.

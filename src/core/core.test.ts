@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { fogForViewport, fogFromGrid, traceRings } from './fog';
 import { shapeAreaInCells, shapeCellCount, shapeContainsCell, shapeFromGeoJson } from './geometry';
-import { REVEAL_SETTINGS, cellsAround, cellsForMove } from './reveal';
+import { REVEAL_SETTINGS, cellsAround, cellsForMove, isUsableFix } from './reveal';
 import { completion, formatPercent, hydrateRegion } from './regions';
 import {
   BASE_ZOOM,
@@ -58,12 +58,23 @@ describe('reveal', () => {
     expect(cells.has(mid)).toBe(true);
   });
 
-  it('does not fill in gaps that are too fast to be on foot', () => {
+  it('fills in the road between fixes when driving', () => {
     const a = { ...SYDNEY, timestamp: 0 };
-    const b = { latitude: SYDNEY.latitude, longitude: SYDNEY.longitude + 0.00216, timestamp: 10_000 };
-    const mid = cellAt(SYDNEY.latitude, SYDNEY.longitude + 0.00108);
+    // ~800m east in 30 seconds (≈96 km/h).
+    const b = { latitude: SYDNEY.latitude, longitude: SYDNEY.longitude + 0.00864, timestamp: 30_000 };
+    const mid = cellAt(SYDNEY.latitude, SYDNEY.longitude + 0.00432);
+    expect(new Set(cellsForMove(a, b)).has(mid)).toBe(true);
+    expect(isUsableFix({ ...b, speed: 27 })).toBe(true);
+  });
+
+  it('ignores flight-speed movement', () => {
+    const a = { ...SYDNEY, timestamp: 0 };
+    // ~800m east in 3 seconds (≈960 km/h).
+    const b = { latitude: SYDNEY.latitude, longitude: SYDNEY.longitude + 0.00864, timestamp: 3_000 };
+    const mid = cellAt(SYDNEY.latitude, SYDNEY.longitude + 0.00432);
     expect(new Set(cellsForMove(a, b)).has(mid)).toBe(false);
-    expect(REVEAL_SETTINGS.maxSpeedMps).toBeLessThan(20);
+    expect(isUsableFix({ ...b, speed: 250 })).toBe(false);
+    expect(REVEAL_SETTINGS.maxSpeedMps).toBeLessThan(100);
   });
 });
 
