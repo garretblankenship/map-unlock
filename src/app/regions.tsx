@@ -15,9 +15,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ProgressBar } from '../components/ProgressBar';
 import { regionStats } from '../components/regionStats';
+import { estimateDownload, formatBytes } from '../core/mapgeo';
+import { shapeBoundsLatLng } from '../core/geometry';
 import { LEVEL_LABELS, REGION_LEVELS, Region, RegionRecord } from '../core/regions';
 import { searchRegions } from '../services/boundaries';
 import { NetworkError } from '../services/net';
+import { offlineAreas } from '../services/offlineAreas';
 import { useStore } from '../state/store';
 import { colors } from '../theme';
 
@@ -67,6 +70,41 @@ export default function RegionsScreen() {
     Alert.alert(`Remove ${r.name}?`, 'Your explored areas are kept; only this region’s progress card is removed.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Remove', style: 'destructive', onPress: () => void store.removeRegion(r.id) },
+    ]);
+
+  const saveOffline = (r: Region) => {
+    const { ne, sw } = shapeBoundsLatLng(r.shape);
+    const bounds: [number, number, number, number] = [sw.longitude, sw.latitude, ne.longitude, ne.latitude];
+    const estimate = estimateDownload(bounds);
+    if (estimate.tooBig) {
+      Alert.alert(
+        `${r.name} is too big to save`,
+        'Save a smaller part instead: zoom the map in on where you’re going and tap the download button.',
+      );
+      return;
+    }
+    Alert.alert(
+      `Save ${r.name} for offline use?`,
+      `Roughly ${formatBytes(estimate.bytes)} (less in the countryside, more in cities). Wi-Fi recommended.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Save',
+          onPress: () =>
+            offlineAreas.save(r.name, bounds).then(
+              () => router.navigate('/offline'),
+              (e) => Alert.alert('Couldn’t save this area', e instanceof Error ? e.message : String(e)),
+            ),
+        },
+      ],
+    );
+  };
+
+  const regionActions = (r: Region) =>
+    Alert.alert(r.name, undefined, [
+      { text: 'Save for offline use', onPress: () => saveOffline(r) },
+      { text: 'Remove region', style: 'destructive', onPress: () => confirmRemove(r) },
+      { text: 'Cancel', style: 'cancel' },
     ]);
 
   const confirmReset = () =>
@@ -142,7 +180,7 @@ export default function RegionsScreen() {
                   key={r.id}
                   style={[styles.row, selected && styles.rowSelected]}
                   onPress={() => open(r)}
-                  onLongPress={() => confirmRemove(r)}
+                  onLongPress={() => regionActions(r)}
                 >
                   <View style={{ flex: 1, gap: 6 }}>
                     <View style={styles.rowHeader}>
@@ -176,7 +214,7 @@ export default function RegionsScreen() {
       ) : null}
 
       <Text style={[styles.muted, { marginTop: 24 }]}>
-        {store.unlocked.size.toLocaleString()} map cells unlocked. Long-press a region to remove it.
+        {store.unlocked.size.toLocaleString()} map cells unlocked. Long-press a region to save it offline or remove it.
       </Text>
       <Pressable onPress={confirmReset} style={styles.reset}>
         <Text style={styles.resetText}>Reset all progress</Text>

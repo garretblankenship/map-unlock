@@ -37,44 +37,47 @@ neighbourhood, city, state and country you visit gets a progress score
   deep woods count in full. Places you pass through without signal (or
   while the app is closed) are queued, and their areas are looked up as
   soon as you're back online. Every request has a deadline, so a weak
-  signal can't stall the app. Search needs a connection. The basemap
-  (Apple/Google Maps) only shows areas the phone has already cached.
+  signal can't stall the app. Search needs a connection.
+- **Offline maps.** The map is drawn with MapLibre from OpenStreetMap
+  vector tiles (OpenFreeMap, no API key). Before heading out of signal,
+  tap the download button on the map (or long-press a region) to save an
+  area: the map, its lakes and rivers, and its boundaries are stored on the
+  phone. The **Offline** tab shows progress and storage, and downloads
+  resume by themselves after the app is closed or signal drops. Recently
+  viewed map areas are also cached (up to 256 MB).
 
 Settings live in `src/core/reveal.ts` (`REVEAL_SETTINGS`) and
 `src/core/fog.ts` (`FOG_SETTINGS`).
 
 ## Running it
 
-You need Node 20+ and a phone with the **Expo Go** app, or an iOS
-simulator/Android emulator.
+You need Node 20+ and a **development build** of the app: the MapLibre map
+has native code that Expo Go doesn't include. Build one once, then iterate
+on the JavaScript with the dev server as usual:
 
 ```bash
 npm install
-npm start          # scan the QR code with Expo Go (Android) or the Camera app (iOS)
-```
-
-Expo Go runs everything except **background** tracking (unlocking while the
-app is closed). For that, make a development build:
-
-```bash
 npx expo run:android      # or: npx expo run:ios   (needs Android Studio / Xcode)
-# or build in the cloud with EAS:
+# or build in the cloud with EAS, no Android Studio / Xcode needed:
 npx eas-cli@latest build --profile development --platform android
+npm start                 # then open the development build on your phone
 ```
 
 In development builds, a 🚶 button on the map runs a **simulated jog**, so you
 can watch the fog clear without going outside.
 
-### Android map key
+### Map style
 
-Android uses Google Maps. Expo Go works without any setup. Your own builds need
-a Google Maps SDK for Android API key:
+The map style is `assets/map/style.json`: OpenFreeMap's Liberty style,
+rebuilt by `node scripts/make-map-style.mjs` to use version-less tile URLs.
+(The stock style's tile URLs change with every weekly data release, which
+would leave saved areas blank offline after the next release.)
 
-```bash
-export GOOGLE_MAPS_ANDROID_API_KEY=your-key
-```
-
-iOS uses Apple Maps and needs no key.
+The app bundles this file, and offline downloads fetch the same file from a
+web address. By default that's this repository's copy on the jsDelivr CDN,
+pinned to a commit. Before launching, host the file yourself (any static
+host) and build with `MAP_STYLE_URL=https://…/style.json`. If you change
+the style, re-host it at a new URL so existing downloads keep matching.
 
 ### Tests
 
@@ -87,7 +90,7 @@ npm run typecheck
 
 ```
 src/
-  app/              screens (Expo Router): map (index.tsx) and regions list
+  app/              screens (Expo Router): map (index.tsx), regions list, offline maps
   core/             pure, unit-tested game logic
     tiles.ts        world grid & coordinate maths
     reveal.ts       GPS fix → unlocked cells (radius, gap filling, filters)
@@ -96,10 +99,15 @@ src/
     scanline.ts     polygon → grid cell rasterization
     water.ts        vector-tile water layer → per-cell water masks
     regions.ts      region completion and formatting
+    mapgeo.ts       fog/outlines → GeoJSON for the map, download sizing
+    pending.ts      places waiting for a boundary lookup (offline queue)
   services/
     tracking.ts     foreground + background location (expo-location)
     boundaries.ts   OpenStreetMap/Nominatim boundary lookup & search
     water.ts        water tile download + cache (OpenFreeMap)
+    offlineAreas.ts saved offline areas: map pack, water, boundaries
+    mapStyle.ts     the map style (bundled + hosted copy)
+    net.ts          request deadlines and connectivity
     db.ts           SQLite persistence
     demo.ts         simulated walk for development
   state/store.ts    shared in-memory state for the UI
@@ -110,9 +118,11 @@ src/
 - **Boundary service.** The public Nominatim server allows 1 request/second
   and isn't meant for app traffic at scale. Self-host Nominatim, or
   precompute boundary files and serve them from a CDN.
-- **Water tiles.** OpenFreeMap is free and asks for no key, but it's a
-  community service. At scale, consider hosting the tiles yourself (e.g. a
-  Protomaps/PMTiles file on a CDN).
+- **Map and water tiles.** OpenFreeMap is free and asks for no key, but
+  it's a community service (consider donating). At scale, consider hosting
+  the tiles yourself; OpenFreeMap publishes weekly full-planet downloads.
+- **Map style URL.** Host `assets/map/style.json` yourself and set
+  `MAP_STYLE_URL` (see *Map style* above).
 - **Battery.** Background tracking uses high-accuracy GPS. Consider
   lowering accuracy, or pausing when the phone is stationary.
 - **Store review.** Apple and Google both scrutinize "Always" location

@@ -1,16 +1,16 @@
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
 /**
- * Extends app.json with secrets read from the environment.
+ * Extends app.json with settings read from the environment.
  *
- * Android uses Google Maps, which needs an API key in real builds (Expo Go
- * has its own). Set GOOGLE_MAPS_ANDROID_API_KEY before building. iOS uses
- * Apple Maps and needs no key.
+ * MAP_STYLE_URL: where offline map downloads fetch the map style from. It
+ * must serve assets/map/style.json unchanged (see src/services/mapStyle.ts).
+ * Defaults to this repository's copy on the jsDelivr CDN.
  */
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...(config as ExpoConfig),
-  plugins: [
-    ...(config.plugins ?? []),
-    ['react-native-maps', { androidGoogleMapsApiKey: process.env.GOOGLE_MAPS_ANDROID_API_KEY }],
-  ],
+  extra: {
+    ...config.extra,
+    mapStyleUrl: process.env.MAP_STYLE_URL,
+  },
 });

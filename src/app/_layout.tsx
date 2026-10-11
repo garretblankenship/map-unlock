@@ -8,6 +8,7 @@ import { useEffect } from 'react';
 import { AppState } from 'react-native';
 
 import { startNetworkMonitor } from '../services/net';
+import { offlineAreas } from '../services/offlineAreas';
 import { store } from '../state/store';
 import { colors } from '../theme';
 
@@ -18,6 +19,7 @@ export default function RootLayout() {
     (async () => {
       try {
         await store.load();
+        void offlineAreas.start();
         const background = await isBackgroundTrackingActive();
         if (cancelled) return;
         store.setTracking(store.tracking, background);
@@ -33,6 +35,7 @@ export default function RootLayout() {
       if (state === 'active' && store.ready) {
         void store.refreshCells();
         store.retryNetwork();
+        void offlineAreas.resumeAll();
       }
     });
     return () => {
@@ -58,6 +61,13 @@ export default function RootLayout() {
           options={{
             title: 'Regions',
             tabBarIcon: ({ color, size }) => <Ionicons name="trophy" color={color} size={size} />,
+          }}
+        />
+        <Tabs.Screen
+          name="offline"
+          options={{
+            title: 'Offline',
+            tabBarIcon: ({ color, size }) => <Ionicons name="cloud-download" color={color} size={size} />,
           }}
         />
       </Tabs>

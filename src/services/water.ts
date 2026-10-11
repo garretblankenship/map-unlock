@@ -6,10 +6,11 @@ import { HttpError, NetworkError, fetchWithTimeout } from './net';
 
 /**
  * Downloads and caches water masks. Tiles come from OpenFreeMap, a free,
- * key-less host of OpenStreetMap vector tiles in the OpenMapTiles schema.
- * Each tile is fetched once and kept in SQLite: water rarely moves.
+ * key-less host of OpenStreetMap vector tiles in the OpenMapTiles schema
+ * (the same tiles the map draws). Each tile is fetched once and kept in
+ * SQLite: water rarely moves.
  */
-const TILEJSON_URL = 'https://tiles.openfreemap.org/planet';
+const TILE_URL = 'https://tiles.openfreemap.org/planet/latest/{z}/{x}/{y}.pbf';
 const MAX_PARALLEL = 4;
 const RETRY_AFTER_MS = 60_000;
 /** A busy city tile is ~150 KB, which takes a while on a weak signal. */
@@ -21,7 +22,6 @@ class WaterService {
   private masks = new Map<string, WaterMask>();
   private inflight = new Map<string, Promise<void>>();
   private failedAt = new Map<string, number>();
-  private tileTemplate: Promise<string> | null = null;
   private active = 0;
   private waiting: (() => void)[] = [];
   private listeners = new Set<() => void>();
@@ -87,8 +87,7 @@ class WaterService {
   }
 
   private async fetchMask(z: number, x: number, y: number): Promise<WaterMask> {
-    const template = await this.template();
-    const url = template.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y));
+    const url = TILE_URL.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y));
     const raw = await fetchWithTimeout(url, {}, TIMEOUT_MS, async (res) => {
       // Empty tiles have no features at all, so no water.
       if (res.status === 204 || res.status === 404) return null;
@@ -100,22 +99,6 @@ class WaterService {
     // Some hosts serve tiles gzipped without a Content-Encoding header.
     if (data[0] === 0x1f && data[1] === 0x8b) data = inflate(data);
     return data.length ? maskFromTile(data) : null;
-  }
-
-  private template(): Promise<string> {
-    this.tileTemplate ??= fetchWithTimeout(TILEJSON_URL, {}, TIMEOUT_MS, async (r) => {
-      if (!r.ok) throw new HttpError(`Map data unavailable (${r.status})`, r.status);
-      return r.json();
-    })
-      .then((j: { tiles?: string[] }) => {
-        if (!j.tiles?.[0]) throw new Error('Map data has no tile URL');
-        return j.tiles[0];
-      })
-      .catch((e) => {
-        this.tileTemplate = null;
-        throw e;
-      });
-    return this.tileTemplate;
   }
 
   private async withSlot<T>(fn: () => Promise<T>): Promise<T> {

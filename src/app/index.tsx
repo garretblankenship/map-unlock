@@ -1,81 +1,110 @@
 import { Ionicons } from '@expo/vector-icons';
+import {
+  Camera,
+  type CameraRef,
+  GeoJSONSource,
+  Layer,
+  Map as MapView,
+  NativeUserLocation,
+  type ViewStateChangeEvent,
+} from '@maplibre/maplibre-react-native';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import MapView, { Polygon, Polyline, Region as MapRegion } from 'react-native-maps';
+import { ActivityIndicator, Alert, NativeSyntheticEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ProgressBar } from '../components/ProgressBar';
 import { regionStats } from '../components/regionStats';
 import { Viewport } from '../core/fog';
 import { shapeBoundsLatLng, shapeOutlines } from '../core/geometry';
+import { Bounds, estimateDownload, fogToGeoJSON, formatBytes, linesToGeoJSON, viewportFromBounds } from '../core/mapgeo';
 import { LEVEL_LABELS } from '../core/regions';
 import { startDemoWalk, stopDemoWalk } from '../services/demo';
+import { MAP_STYLE } from '../services/mapStyle';
+import { offlineAreas } from '../services/offlineAreas';
 import { startBackgroundTracking, stopBackgroundTracking } from '../services/tracking';
 import { useStore } from '../state/store';
 import { colors } from '../theme';
 
-const WORLD: MapRegion = { latitude: 20, longitude: 0, latitudeDelta: 100, longitudeDelta: 100 };
-const STREET_DELTA = 0.012;
-
-function toViewport(r: MapRegion): Viewport {
-  return {
-    north: r.latitude + r.latitudeDelta / 2,
-    south: r.latitude - r.latitudeDelta / 2,
-    east: r.longitude + r.longitudeDelta / 2,
-    west: r.longitude - r.longitudeDelta / 2,
-  };
-}
+const WORLD: Viewport = { north: 70, south: -55, east: 180, west: -180 };
+const STREET_ZOOM = 15;
 
 export default function MapScreen() {
   const store = useStore();
   const insets = useSafeAreaInsets();
-  const mapRef = useRef<MapView>(null);
-  const [mapRegion, setMapRegion] = useState<MapRegion>(WORLD);
+  const cameraRef = useRef<CameraRef>(null);
+  const [viewport, setViewport] = useState<Viewport>(WORLD);
   const [demo, setDemo] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
   const centeredOnce = useRef(false);
 
   // Recompute fog when the camera settles or new cells are unlocked.
   const unlockedCount = store.unlocked.size;
   const fog = useMemo(
-    () => store.fog(toViewport(mapRegion)),
-    [mapRegion, unlockedCount, store.ready, store.waterVersion],
+    () => fogToGeoJSON(store.fog(viewport).polygons),
+    [viewport, unlockedCount, store.ready, store.waterVersion],
   );
 
   // Water is never fogged; fetch it for whatever is on screen.
-  useEffect(() => store.requestWater(toViewport(mapRegion)), [mapRegion]);
+  useEffect(() => store.requestWater(viewport), [viewport]);
 
   const region = store.selectedRegion;
-  const outlines = useMemo(() => (region ? shapeOutlines(region.shape) : []), [region]);
+  const outlines = useMemo(() => linesToGeoJSON(region ? shapeOutlines(region.shape) : []), [region]);
   const stats = region ? regionStats(region) : null;
 
-  // Jump to the user the first time we learn where they are.
+  // Jump to the user the first time we learn where they are (once the map can move).
   useEffect(() => {
-    if (store.position && !centeredOnce.current) {
+    if (mapReady && store.position && !centeredOnce.current) {
       centeredOnce.current = true;
-      mapRef.current?.animateToRegion(
-        { ...store.position, latitudeDelta: STREET_DELTA, longitudeDelta: STREET_DELTA },
-        600,
-      );
+      const { longitude, latitude } = store.position;
+      cameraRef.current?.easeTo({ center: [longitude, latitude], zoom: STREET_ZOOM, duration: 600 });
     }
-  }, [store.position]);
+  }, [store.position, mapReady]);
 
   // Frame the region when it's picked from the regions list.
   useEffect(() => {
     const target = store.selectedRegion;
     if (store.focusToken === 0 || !target) return;
     const { ne, sw } = shapeBoundsLatLng(target.shape);
-    mapRef.current?.fitToCoordinates([ne, sw], {
-      edgePadding: { top: 160, right: 40, bottom: 140, left: 40 },
-      animated: true,
+    cameraRef.current?.fitBounds([sw.longitude, sw.latitude, ne.longitude, ne.latitude], {
+      padding: { top: 160, right: 40, bottom: 140, left: 40 },
+      duration: 800,
     });
   }, [store.focusToken]);
 
+  const onRegionDidChange = (e: NativeSyntheticEvent<ViewStateChangeEvent>) =>
+    setViewport(viewportFromBounds(e.nativeEvent.bounds));
+
   const centerOnMe = () => {
     if (!store.position) return;
-    mapRef.current?.animateToRegion(
-      { ...store.position, latitudeDelta: STREET_DELTA, longitudeDelta: STREET_DELTA },
-      400,
+    const { longitude, latitude } = store.position;
+    cameraRef.current?.easeTo({ center: [longitude, latitude], zoom: STREET_ZOOM, duration: 400 });
+  };
+
+  const saveArea = () => {
+    const bounds: Bounds = [viewport.west, viewport.south, viewport.east, viewport.north];
+    const estimate = estimateDownload(bounds);
+    if (estimate.tooBig) {
+      Alert.alert('Area too big', 'Zoom in on the place you’re heading to, then save it.');
+      return;
+    }
+    const center = { latitude: (viewport.north + viewport.south) / 2, longitude: (viewport.east + viewport.west) / 2 };
+    const name = store.regionsAt(center)[0]?.name ?? `Area at ${center.latitude.toFixed(3)}, ${center.longitude.toFixed(3)}`;
+    Alert.alert(
+      'Save this area for offline use?',
+      `Saves the map, water and boundaries for what’s on screen, so it works without signal. ` +
+        `Roughly ${formatBytes(estimate.bytes)} (less in the countryside, more in cities). Wi-Fi recommended.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Save',
+          onPress: () =>
+            offlineAreas.save(name, bounds).then(
+              () => router.navigate('/offline'),
+              (e) => Alert.alert('Couldn’t save this area', e instanceof Error ? e.message : String(e)),
+            ),
+        },
+      ],
     );
   };
 
@@ -97,30 +126,29 @@ export default function MapScreen() {
   return (
     <View style={styles.container}>
       <MapView
-        ref={mapRef}
         style={StyleSheet.absoluteFill}
-        initialRegion={WORLD}
-        onRegionChangeComplete={setMapRegion}
-        showsUserLocation
-        showsMyLocationButton={false}
-        showsCompass={false}
-        toolbarEnabled={false}
-        rotateEnabled={false}
-        pitchEnabled={false}
+        mapStyle={MAP_STYLE}
+        onRegionDidChange={onRegionDidChange}
+        onDidFinishLoadingStyle={() => setMapReady(true)}
+        touchRotate={false}
+        touchPitch={false}
+        compass={false}
+        logo={false}
+        attributionPosition={{ bottom: 128, right: 8 }}
       >
-        {fog.polygons.map((p, i) => (
-          <Polygon
-            key={`fog-${i}`}
-            coordinates={p.outer}
-            holes={p.holes}
-            fillColor={colors.fog}
-            strokeWidth={0}
-            strokeColor="transparent"
+        <Camera ref={cameraRef} initialViewState={{ center: [0, 20], zoom: 1 }} />
+        <GeoJSONSource id="fog" data={fog}>
+          <Layer id="fog-fill" type="fill" paint={{ 'fill-color': colors.fog, 'fill-antialias': false }} />
+        </GeoJSONSource>
+        <GeoJSONSource id="region-outline" data={outlines}>
+          <Layer
+            id="region-outline-line"
+            type="line"
+            layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+            paint={{ 'line-color': colors.accent, 'line-width': 3 }}
           />
-        ))}
-        {outlines.map((line, i) => (
-          <Polyline key={`outline-${i}`} coordinates={line} strokeColor={colors.accent} strokeWidth={3} />
-        ))}
+        </GeoJSONSource>
+        <NativeUserLocation />
       </MapView>
 
       <Pressable
@@ -191,6 +219,9 @@ export default function MapScreen() {
             <Ionicons name={demo ? 'stop' : 'walk'} size={22} color={colors.text} />
           </Pressable>
         ) : null}
+        <Pressable style={styles.round} onPress={saveArea} accessibilityLabel="Save this area for offline use">
+          <Ionicons name="cloud-download-outline" size={22} color={colors.text} />
+        </Pressable>
         <Pressable style={styles.round} onPress={centerOnMe} accessibilityLabel="Center on my location">
           <Ionicons name="locate" size={22} color={colors.text} />
         </Pressable>

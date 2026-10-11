@@ -9,6 +9,7 @@ import { BASE_ZOOM, LatLng, distanceMeters, latToY, lonToX, parentKey } from '..
 import * as db from '../services/db';
 import { regionsAt } from '../services/boundaries';
 import { isOnline, isTransient, onConnectivityChange } from '../services/net';
+import { offlineAreas } from '../services/offlineAreas';
 import { water } from '../services/water';
 
 /**
@@ -53,6 +54,8 @@ class ExplorationStore {
         this.emit();
       }, 150);
     });
+
+    offlineAreas.queueLookups = (points) => void this.queueLookups(points);
 
     onConnectivityChange((online) => {
       this.offline = !online;
@@ -236,6 +239,14 @@ class ExplorationStore {
     if (last && Date.now() - last.time < 120_000 && distanceMeters(last.at, p) < 500) return;
     this.lastDiscovery = { at: p, time: Date.now() };
     const list = await db.updatePendingPlaces((l) => addPendingPlace(l, p));
+    this.pendingPlaces = list.length;
+    this.emit();
+    void this.flushLookups();
+  }
+
+  /** Queues places to look up regardless of where the user is, e.g. an area saved for offline use. */
+  async queueLookups(points: LatLng[]) {
+    const list = await db.updatePendingPlaces((l) => points.reduce(addPendingPlace, l));
     this.pendingPlaces = list.length;
     this.emit();
     void this.flushLookups();
