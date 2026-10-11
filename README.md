@@ -30,6 +30,8 @@ neighbourhood, city, state and country you visit gets a progress score
   water cell by cell. Very large ones (states, countries) use a coarser
   water estimate. Regions are added only by visiting them; there's no
   place search.
+- **Units.** Areas show in km² / m² or mi² / acres, following the phone's
+  region (US and UK get imperial). Settings can override it.
 - **Storage and backups.** Everything is stored on the device in SQLite;
   there are no accounts and no servers. Progress (unlocked cells, regions)
   is in its own small database that the phone's normal iCloud / Google
@@ -104,7 +106,10 @@ npm run typecheck
 
 ```
 src/
-  app/              screens (Expo Router): map (index.tsx), regions list, offline maps
+  app/              screens (Expo Router)
+    _layout.tsx     app start-up and the root stack
+    (tabs)/         the tab bar: map (index.tsx), regions, offline maps
+    settings.tsx    units and reset, opened from Regions
   core/             pure, unit-tested game logic
     tiles.ts        world grid & coordinate maths
     reveal.ts       GPS fix → unlocked cells (radius, gap filling, filters)
@@ -115,6 +120,7 @@ src/
     regions.ts      region completion and formatting
     mapgeo.ts       fog/outlines → GeoJSON for the map, download sizing
     pending.ts      places waiting for a boundary lookup (offline queue)
+    units.ts        metric / imperial formatting
   services/
     tracking.ts     foreground + background location (expo-location)
     boundaries.ts   OpenStreetMap/Nominatim boundary lookup

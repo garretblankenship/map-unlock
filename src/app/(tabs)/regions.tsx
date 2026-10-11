@@ -1,16 +1,17 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ProgressBar } from '../components/ProgressBar';
-import { regionStats } from '../components/regionStats';
-import { estimateDownload, formatBytes } from '../core/mapgeo';
-import { shapeBoundsLatLng } from '../core/geometry';
-import { REGION_LEVELS, Region } from '../core/regions';
-import { t } from '../i18n';
-import { offlineAreas } from '../services/offlineAreas';
-import { useStore } from '../state/store';
-import { colors } from '../theme';
+import { ProgressBar } from '../../components/ProgressBar';
+import { regionStats } from '../../components/regionStats';
+import { estimateDownload, formatBytes } from '../../core/mapgeo';
+import { shapeBoundsLatLng } from '../../core/geometry';
+import { REGION_LEVELS, Region } from '../../core/regions';
+import { t } from '../../i18n';
+import { offlineAreas } from '../../services/offlineAreas';
+import { useStore } from '../../state/store';
+import { colors } from '../../theme';
 
 export default function RegionsScreen() {
   const store = useStore();
@@ -63,18 +64,22 @@ export default function RegionsScreen() {
       { text: t('action.cancel'), style: 'cancel' },
     ]);
 
-  const confirmReset = () =>
-    Alert.alert(t('regions.reset.title'), t('regions.reset.body'), [
-      { text: t('action.cancel'), style: 'cancel' },
-      { text: t('action.reset'), style: 'destructive', onPress: () => void store.resetProgress() },
-    ]);
-
   return (
     <ScrollView
       style={styles.screen}
       contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: 40, paddingHorizontal: 16 }}
     >
-      <Text style={styles.title}>{t('regions.title')}</Text>
+      <View style={styles.titleRow}>
+        <Text style={styles.title}>{t('regions.title')}</Text>
+        <Pressable
+          onPress={() => router.push('/settings')}
+          accessibilityRole="button"
+          accessibilityLabel={t('settings.a11y.open')}
+          hitSlop={8}
+        >
+          <Ionicons name="settings-outline" size={24} color={colors.text} />
+        </Pressable>
+      </View>
       <Text style={styles.subtitle}>{t('regions.subtitle')}</Text>
 
       {REGION_LEVELS.map((level) => {
@@ -84,7 +89,7 @@ export default function RegionsScreen() {
           <View key={level} style={styles.section}>
             <Text style={styles.sectionTitle}>{t(`levels.${level}`)}</Text>
             {list.map((r) => {
-              const s = regionStats(r);
+              const s = regionStats(r, store.units);
               const selected = r.id === store.selectedRegionId;
               return (
                 <Pressable
@@ -128,16 +133,13 @@ export default function RegionsScreen() {
       <Text style={[styles.muted, { marginTop: 24 }]}>
         {t('regions.cellsUnlocked', { count: store.unlocked.size.toLocaleString() })}
       </Text>
-      <Pressable onPress={confirmReset} style={styles.reset}>
-        <Text style={styles.resetText}>{t('regions.reset')}</Text>
-      </Pressable>
-      <Text style={styles.attribution}>{t('regions.attribution')}</Text>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontSize: 30, fontWeight: '800', color: colors.text },
   subtitle: { fontSize: 14, color: colors.muted, marginTop: 4, marginBottom: 16 },
   section: { marginTop: 20, gap: 8 },
@@ -167,7 +169,4 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   muted: { fontSize: 13, color: colors.muted },
-  reset: { marginTop: 12, alignSelf: 'flex-start' },
-  resetText: { color: colors.danger, fontWeight: '600' },
-  attribution: { marginTop: 24, fontSize: 11, color: colors.muted },
 });

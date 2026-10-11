@@ -1,8 +1,7 @@
 // Registers the background location task; must load before anything else.
 import { startForegroundTracking, isBackgroundTrackingActive } from '../services/tracking';
 
-import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router/js-tabs';
+import { Stack } from 'expo-router/stack';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
@@ -34,6 +33,7 @@ export default function RootLayout() {
     // retry lookups that waited for a connection (water, places to look up).
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active' && store.ready) {
+        store.refreshPhonePreferences();
         void store.refreshCells();
         store.retryNetwork();
         void offlineAreas.resumeAll();
@@ -49,29 +49,10 @@ export default function RootLayout() {
   return (
     <>
       <StatusBar style="dark" />
-      <Tabs screenOptions={{ headerShown: false, tabBarActiveTintColor: colors.accent }}>
-        <Tabs.Screen
-          name="index"
-          options={{
-            title: t('tab.map'),
-            tabBarIcon: ({ color, size }) => <Ionicons name="map" color={color} size={size} />,
-          }}
-        />
-        <Tabs.Screen
-          name="regions"
-          options={{
-            title: t('tab.regions'),
-            tabBarIcon: ({ color, size }) => <Ionicons name="trophy" color={color} size={size} />,
-          }}
-        />
-        <Tabs.Screen
-          name="offline"
-          options={{
-            title: t('tab.offline'),
-            tabBarIcon: ({ color, size }) => <Ionicons name="cloud-download" color={color} size={size} />,
-          }}
-        />
-      </Tabs>
+      <Stack screenOptions={{ headerTintColor: colors.accent }}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="settings" options={{ title: t('settings.title'), headerBackTitle: t('regions.title') }} />
+      </Stack>
     </>
   );
 }

@@ -2,12 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ProgressBar } from '../components/ProgressBar';
-import { formatBytes } from '../core/mapgeo';
-import { t } from '../i18n';
-import { OfflineArea, offlineAreas, useOfflineAreas } from '../services/offlineAreas';
-import { useStore } from '../state/store';
-import { colors } from '../theme';
+import { ProgressBar } from '../../components/ProgressBar';
+import { formatBytes } from '../../core/mapgeo';
+import { t } from '../../i18n';
+import { OfflineArea, offlineAreas, useOfflineAreas } from '../../services/offlineAreas';
+import { useStore } from '../../state/store';
+import { colors } from '../../theme';
 
 function statusLine(a: OfflineArea, offline: boolean): string {
   const size = a.bytes > 0 ? ` · ${formatBytes(a.bytes)}` : '';

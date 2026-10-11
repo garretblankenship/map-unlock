@@ -171,7 +171,8 @@ export async function setLastFix(fix: Fix): Promise<void> {
 }
 
 export async function resetAll(): Promise<void> {
-  await getDb().execAsync('DELETE FROM cells; DELETE FROM regions; DELETE FROM meta;');
+  // Settings survive a reset; everything else about progress goes.
+  await getDb().execAsync("DELETE FROM cells; DELETE FROM regions; DELETE FROM meta WHERE k != 'settings';");
 }
 
 let pendingQueue: Promise<unknown> = Promise.resolve();

@@ -13,18 +13,18 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, NativeSyntheticEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ProgressBar } from '../components/ProgressBar';
-import { regionStats } from '../components/regionStats';
-import { Viewport } from '../core/fog';
-import { shapeBoundsLatLng, shapeOutlines } from '../core/geometry';
-import { Bounds, estimateDownload, fogToGeoJSON, formatBytes, linesToGeoJSON, viewportFromBounds } from '../core/mapgeo';
-import { t } from '../i18n';
-import { startDemoWalk, stopDemoWalk } from '../services/demo';
-import { MAP_STYLE } from '../services/mapStyle';
-import { offlineAreas } from '../services/offlineAreas';
-import { startBackgroundTracking, stopBackgroundTracking } from '../services/tracking';
-import { useStore } from '../state/store';
-import { colors } from '../theme';
+import { ProgressBar } from '../../components/ProgressBar';
+import { regionStats } from '../../components/regionStats';
+import { Viewport } from '../../core/fog';
+import { shapeBoundsLatLng, shapeOutlines } from '../../core/geometry';
+import { Bounds, estimateDownload, fogToGeoJSON, formatBytes, linesToGeoJSON, viewportFromBounds } from '../../core/mapgeo';
+import { t } from '../../i18n';
+import { startDemoWalk, stopDemoWalk } from '../../services/demo';
+import { MAP_STYLE } from '../../services/mapStyle';
+import { offlineAreas } from '../../services/offlineAreas';
+import { startBackgroundTracking, stopBackgroundTracking } from '../../services/tracking';
+import { useStore } from '../../state/store';
+import { colors } from '../../theme';
 
 const WORLD: Viewport = { north: 70, south: -55, east: 180, west: -180 };
 const STREET_ZOOM = 15;
@@ -50,7 +50,7 @@ export default function MapScreen() {
 
   const region = store.selectedRegion;
   const outlines = useMemo(() => linesToGeoJSON(region ? shapeOutlines(region.shape) : []), [region]);
-  const stats = region ? regionStats(region) : null;
+  const stats = region ? regionStats(region, store.units) : null;
 
   // Jump to the user the first time we learn where they are (once the map can move).
   useEffect(() => {

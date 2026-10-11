@@ -85,6 +85,19 @@ export const en = {
     `Roughly ${p.size} (less in the countryside, more in cities). Wi-Fi recommended.`,
   'regions.attribution': 'Boundaries and water © OpenStreetMap contributors · water tiles by OpenFreeMap / OpenMapTiles',
 
+  // Settings screen
+  'settings.title': 'Settings',
+  'settings.a11y.open': 'Settings',
+  'settings.units': 'Units',
+  'settings.units.auto': 'Automatic',
+  'settings.units.autoDetail': (p: { system: string }) => `Follows your phone (${p.system})`,
+  'settings.units.metric': 'Metric',
+  'settings.units.metricDetail': 'Kilometres, km²',
+  'settings.units.imperial': 'Imperial',
+  'settings.units.imperialDetail': 'Miles, acres, mi²',
+  'settings.progress': 'Progress',
+  'settings.attribution': 'Map data',
+
   // Offline screen
   'offline.title': 'Offline maps',
   'offline.intro.before': 'Heading somewhere without signal? Before you go, open the map on the area and tap ',

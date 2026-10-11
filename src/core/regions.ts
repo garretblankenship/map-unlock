@@ -116,8 +116,3 @@ export function formatPercent(fraction: number): string {
   // Countries can take a lifetime; show enough digits for progress to be visible.
   return `${pct.toPrecision(2)}%`;
 }
-
-export function formatArea(m2: number): string {
-  if (m2 >= 1e6) return `${(m2 / 1e6).toFixed(m2 >= 1e8 ? 0 : 2)} km²`;
-  return `${Math.round(m2).toLocaleString()} m²`;
-}

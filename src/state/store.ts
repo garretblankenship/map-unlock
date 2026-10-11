@@ -1,3 +1,4 @@
+import { getLocales } from 'expo-localization';
 import { useSyncExternalStore } from 'react';
 
 import { Viewport, fogForViewport, fogWindow } from '../core/fog';
@@ -6,11 +7,24 @@ import { shapeContains } from '../core/geometry';
 import { Region, RegionRecord, addCellsToRegion, applyWater, hydrateRegion } from '../core/regions';
 import { tilesForCells } from '../core/water';
 import { BASE_ZOOM, LatLng, distanceMeters, latToY, lonToX, parentKey } from '../core/tiles';
+import { UnitPreference, UnitSystem, resolveUnits } from '../core/units';
 import * as db from '../services/db';
 import { regionsAt } from '../services/boundaries';
 import { isOnline, isTransient, onConnectivityChange } from '../services/net';
 import { offlineAreas } from '../services/offlineAreas';
 import { water } from '../services/water';
+
+/** Preferences from the Settings screen, saved in the meta table. */
+export type Settings = { units: UnitPreference };
+const DEFAULT_SETTINGS: Settings = { units: 'auto' };
+
+function phoneMeasurementSystem(): string | null {
+  try {
+    return getLocales()[0]?.measurementSystem ?? null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * In-memory game state shared by every screen. The database is the source of
@@ -37,6 +51,8 @@ class ExplorationStore {
   offline = !isOnline();
   /** Places visited without signal whose areas haven't been looked up yet. */
   pendingPlaces = 0;
+  settings: Settings = DEFAULT_SETTINGS;
+  private phoneMeasurement = phoneMeasurementSystem();
 
   private version = 0;
   private listeners = new Set<() => void>();
@@ -85,8 +101,37 @@ class ExplorationStore {
     this.listeners.forEach((fn) => fn());
   }
 
+  /** Units to show, from Settings or the phone's region. */
+  get units(): UnitSystem {
+    return resolveUnits(this.settings.units, this.phoneMeasurement);
+  }
+
+  /** Units the phone's region uses, for the 'Automatic' option. */
+  get phoneUnits(): UnitSystem {
+    return resolveUnits('auto', this.phoneMeasurement);
+  }
+
+  async updateSettings(change: Partial<Settings>) {
+    this.settings = { ...this.settings, ...change };
+    this.emit();
+    await db.setMeta('settings', this.settings);
+  }
+
+  /** Re-reads phone preferences (Android doesn't restart the app when they change). */
+  refreshPhonePreferences() {
+    const m = phoneMeasurementSystem();
+    if (m === this.phoneMeasurement) return;
+    this.phoneMeasurement = m;
+    this.emit();
+  }
+
   async load() {
-    const [cells, records] = await Promise.all([db.loadCells(), db.loadRegions()]);
+    const [cells, records, settings] = await Promise.all([
+      db.loadCells(),
+      db.loadRegions(),
+      db.getMeta<Partial<Settings>>('settings'),
+    ]);
+    this.settings = { ...DEFAULT_SETTINGS, ...settings };
     this.unlocked = new Set(cells);
     this.levelCache.clear();
     this.regions = records.map((r) => hydrateRegion(r, this.unlocked));
