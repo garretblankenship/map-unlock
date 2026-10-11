@@ -1,0 +1,114 @@
+import * as SQLite from 'expo-sqlite';
+
+import type { Fix } from '../core/reveal';
+import type { RegionRecord } from '../core/regions';
+
+/**
+ * Local persistence. Everything stays on the device:
+ *  - cells:   every unlocked base-zoom cell
+ *  - regions: boundaries the user has discovered or added
+ *  - meta:    small key/value state (last GPS fix, settings)
+ */
+
+let db: SQLite.SQLiteDatabase | null = null;
+
+export function getDb(): SQLite.SQLiteDatabase {
+  if (db) return db;
+  db = SQLite.openDatabaseSync('mapunlock.db');
+  db.execSync(`
+    PRAGMA journal_mode = WAL;
+    CREATE TABLE IF NOT EXISTS cells (key INTEGER PRIMARY KEY NOT NULL, unlocked_at INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS regions (
+      id TEXT PRIMARY KEY NOT NULL,
+      name TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      level TEXT NOT NULL,
+      geometry TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY NOT NULL, v TEXT NOT NULL);
+  `);
+  return db;
+}
+
+export async function loadCells(): Promise<number[]> {
+  const rows = await getDb().getAllAsync<{ key: number }>('SELECT key FROM cells');
+  return rows.map((r) => r.key);
+}
+
+/** Inserts cells, returning only the ones that weren't already unlocked. */
+export async function saveCells(keys: number[], known?: Set<number>): Promise<number[]> {
+  const fresh = known ? keys.filter((k) => !known.has(k)) : keys;
+  if (fresh.length === 0) return [];
+  const d = getDb();
+  const added: number[] = [];
+  await d.withTransactionAsync(async () => {
+    const stmt = await d.prepareAsync('INSERT OR IGNORE INTO cells (key, unlocked_at) VALUES (?, ?)');
+    try {
+      const now = Date.now();
+      for (const k of fresh) {
+        const res = await stmt.executeAsync(k, now);
+        if (res.changes > 0) added.push(k);
+      }
+    } finally {
+      await stmt.finalizeAsync();
+    }
+  });
+  return added;
+}
+
+export async function loadRegions(): Promise<RegionRecord[]> {
+  const rows = await getDb().getAllAsync<{
+    id: string;
+    name: string;
+    display_name: string;
+    level: RegionRecord['level'];
+    geometry: string;
+    created_at: number;
+  }>('SELECT * FROM regions ORDER BY created_at');
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    displayName: r.display_name,
+    level: r.level,
+    geometry: JSON.parse(r.geometry),
+    createdAt: r.created_at,
+  }));
+}
+
+export async function saveRegion(r: RegionRecord): Promise<void> {
+  await getDb().runAsync(
+    'INSERT OR REPLACE INTO regions (id, name, display_name, level, geometry, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    r.id,
+    r.name,
+    r.displayName,
+    r.level,
+    JSON.stringify(r.geometry),
+    r.createdAt,
+  );
+}
+
+export async function deleteRegion(id: string): Promise<void> {
+  await getDb().runAsync('DELETE FROM regions WHERE id = ?', id);
+}
+
+export async function getMeta<T>(k: string): Promise<T | null> {
+  const row = await getDb().getFirstAsync<{ v: string }>('SELECT v FROM meta WHERE k = ?', k);
+  return row ? (JSON.parse(row.v) as T) : null;
+}
+
+export async function setMeta(k: string, v: unknown): Promise<void> {
+  await getDb().runAsync('INSERT OR REPLACE INTO meta (k, v) VALUES (?, ?)', k, JSON.stringify(v));
+}
+
+export async function getLastFix(): Promise<Fix | null> {
+  return getMeta<Fix>('lastFix');
+}
+
+export async function setLastFix(fix: Fix): Promise<void> {
+  await setMeta('lastFix', fix);
+}
+
+export async function resetAll(): Promise<void> {
+  await getDb().execAsync('DELETE FROM cells; DELETE FROM regions; DELETE FROM meta;');
+}

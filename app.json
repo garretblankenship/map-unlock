@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "Map Unlock",
+    "slug": "map-unlock",
+    "version": "0.1.0",
+    "scheme": "mapunlock",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mapunlock.app"
+    },
+    "android": {
+      "package": "com.mapunlock.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Map Unlock uses your location to clear the fog from places you visit.",
+          "locationAlwaysAndWhenInUsePermission": "Allow \"Always\" so the map keeps unlocking while your phone is in your pocket.",
+          "locationAlwaysPermission": "Allow \"Always\" so the map keeps unlocking while your phone is in your pocket.",
+          "motionUsagePermission": false,
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ]
+    ]
+  }
+}
