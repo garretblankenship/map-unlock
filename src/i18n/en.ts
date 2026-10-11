@@ -119,6 +119,23 @@ export const en = {
   'offline.a11y.delete': (p: { name: string }) => `Delete ${p.name}`,
   'offline.defaultName': 'Saved area',
 
+  // Background exploring explainer (shown before the system's "Always" prompt)
+  'background.title': 'Keep exploring with the app closed',
+  'background.body':
+    'To unlock the map while your phone is in your pocket, Open World Life needs to use your location ' +
+    'even when the app isn’t open.',
+  'background.point.private': 'Your location never leaves your phone. There are no accounts and no servers.',
+  'background.point.battery': 'GPS backs off when you’re standing still, to save battery on long days out.',
+  'background.point.stop': 'Turn it off any time from the map.',
+  'background.ios': 'On the next screen, choose “Change to Always Allow”.',
+  'background.android': 'On the next screen, choose “Allow all the time”.',
+  'background.blocked':
+    'Location access is currently limited. Open Settings, then set Location to “Always” (iPhone) or ' +
+    '“Allow all the time” (Android).',
+  'background.continue': 'Continue',
+  'background.openSettings': 'Open Settings',
+  'background.notNow': 'Not now',
+
   // Location and tracking
   'location.permissionNeeded': 'Location permission is needed to unlock the map.',
   'location.error': (p: { reason: string }) => `Location error: ${p.reason}`,

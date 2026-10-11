@@ -51,6 +51,7 @@ export default function RootLayout() {
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerTintColor: colors.accent }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="background-permission" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="settings" options={{ title: t('settings.title'), headerBackTitle: t('regions.title') }} />
       </Stack>
     </>

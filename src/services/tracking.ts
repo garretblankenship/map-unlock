@@ -2,6 +2,7 @@ import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 
 import { addPendingPlace } from '../core/pending';
+import { BackgroundStep, backgroundStep } from '../core/permissions';
 import { Fix, cellsForMove, isUsableFix } from '../core/reveal';
 import { t } from '../i18n';
 import { store } from '../state/store';
@@ -92,6 +93,15 @@ export function stopForegroundTracking() {
   foregroundSub?.remove();
   foregroundSub = null;
   store.setTracking(false, store.backgroundTracking);
+}
+
+/** What turning on background exploring needs right now (see core/permissions.ts). */
+export async function getBackgroundStep(): Promise<BackgroundStep> {
+  const [fg, bg] = await Promise.all([
+    Location.getForegroundPermissionsAsync(),
+    Location.getBackgroundPermissionsAsync(),
+  ]);
+  return backgroundStep(fg, bg);
 }
 
 /**

@@ -22,7 +22,7 @@ import { t } from '../../i18n';
 import { startDemoWalk, stopDemoWalk } from '../../services/demo';
 import { MAP_STYLE } from '../../services/mapStyle';
 import { offlineAreas } from '../../services/offlineAreas';
-import { startBackgroundTracking, stopBackgroundTracking } from '../../services/tracking';
+import { getBackgroundStep, startBackgroundTracking, stopBackgroundTracking } from '../../services/tracking';
 import { useStore } from '../../state/store';
 import { colors } from '../../theme';
 
@@ -108,9 +108,11 @@ export default function MapScreen() {
     );
   };
 
-  const toggleBackground = () => {
-    if (store.backgroundTracking) void stopBackgroundTracking();
-    else void startBackgroundTracking();
+  const toggleBackground = async () => {
+    if (store.backgroundTracking) return stopBackgroundTracking();
+    const step = await getBackgroundStep();
+    if (step === 'start') await startBackgroundTracking();
+    else router.push({ pathname: '/background-permission', params: { step } });
   };
 
   const toggleDemo = () => {
@@ -206,7 +208,7 @@ export default function MapScreen() {
       ) : null}
 
       <View style={[styles.controls, { bottom: 24 }]}>
-        <Pressable style={styles.pill} onPress={toggleBackground}>
+        <Pressable style={styles.pill} onPress={() => void toggleBackground()}>
           <View style={[styles.dot, { backgroundColor: store.backgroundTracking ? colors.accent : colors.muted }]} />
           <Text style={styles.pillText}>
             {store.backgroundTracking ? t('map.backgroundOn') : t('map.backgroundOff')}
