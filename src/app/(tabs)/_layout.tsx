@@ -7,7 +7,14 @@ import { useColors } from '../../theme';
 export default function TabsLayout() {
   const colors = useColors();
   return (
-    <Tabs screenOptions={{ headerShown: false, tabBarActiveTintColor: colors.accent }}>
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: colors.accent,
+        // Hidden tabs don't re-render on every GPS fix.
+        freezeOnBlur: true,
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{

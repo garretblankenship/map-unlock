@@ -161,7 +161,8 @@ export default function MapScreen() {
             paint={{ 'line-color': colors.accent, 'line-width': 3 }}
           />
         </GeoJSONSource>
-        <NativeUserLocation />
+        {/* The dot doesn't need 60 fps; Android's location animation is capped to save battery. */}
+        <NativeUserLocation androidPreferredFramesPerSecond={15} />
       </MapView>
 
       <Pressable

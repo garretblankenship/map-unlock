@@ -67,6 +67,7 @@ class ExplorationStore {
   private changedWhileHidden = false;
   private levelCache = new Map<number, Set<number>>();
   private lastDiscovery: { at: LatLng; time: number } | null = null;
+  private lastCoverageCheck: LatLng | null = null;
   private waterTimer: ReturnType<typeof setTimeout> | null = null;
   private lastViewport: Viewport | null = null;
 
@@ -181,6 +182,9 @@ class ExplorationStore {
     this.emit();
     this.loadRegionWater();
     void this.flushLookups();
+    // A position that arrived while regions were loading wasn't checked yet.
+    this.lastCoverageCheck = this.position;
+    if (this.position) void this.maybeDiscover(this.position);
   }
 
   /**
@@ -283,9 +287,18 @@ class ExplorationStore {
     this.emit();
   }
 
+  /**
+   * The latest location. Screens only update when it has moved a few metres
+   * (the map's own location dot moves smoothly on its own), and region
+   * coverage is only re-checked every 50 m.
+   */
   setPosition(p: LatLng) {
+    const prev = this.position;
     this.position = p;
+    if (prev && distanceMeters(prev, p) < 3) return;
     this.emit();
+    if (this.lastCoverageCheck && distanceMeters(this.lastCoverageCheck, p) < 50) return;
+    this.lastCoverageCheck = p;
     void this.maybeDiscover(p);
   }
 
@@ -303,6 +316,7 @@ class ExplorationStore {
   async resetProgress() {
     await db.resetAll();
     this.lastDiscovery = null;
+    this.lastCoverageCheck = null;
     this.selectedRegionId = null;
     await this.load();
   }

@@ -32,7 +32,7 @@ export function buildShapeIndex(
   const gy0 = Math.floor(bbox.minY / size);
   const w = Math.floor(bbox.maxX / size) - gx0 + 1;
   const h = Math.floor(bbox.maxY / size) - gy0 + 1;
-  const grid = new Uint8Array(w * h);
+  const grid = new Uint8Array(w * h).fill(OUTSIDE);
 
   // Squares whose centers are inside, by the same even-odd rule as the exact test.
   for (const rings of polygons) {
