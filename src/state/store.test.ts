@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { RegionRecord } from '../core/regions';
+import { store } from './store';
+
+// vi.mock calls below are hoisted above the imports by vitest.
 
 const h = vi.hoisted(() => ({
   meta: new Map<string, unknown>(),
@@ -39,7 +42,6 @@ vi.mock('../services/boundaries', () => ({
   },
 }));
 
-import { store } from './store';
 
 const square = (lat: number, lon: number, d: number): RegionRecord['geometry'] => ({
   type: 'Polygon',
