@@ -12,7 +12,16 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
  * set, the app falls back to the public OpenStreetMap lookup service, which
  * is only acceptable for development.
  */
-export default ({ config }: ConfigContext): ExpoConfig => ({
+export default ({ config }: ConfigContext): ExpoConfig => {
+  // Store builds must use the hosted boundary files: the fallback lookup
+  // service doesn't allow app traffic. EAS sets EAS_BUILD_PROFILE when building.
+  if (process.env.EAS_BUILD_PROFILE === 'production' && !process.env.BOUNDARIES_URL) {
+    throw new Error('Set BOUNDARIES_URL for production builds (see pipeline/README.md).');
+  }
+  return withExtras(config);
+};
+
+const withExtras = (config: ConfigContext['config']): ExpoConfig => ({
   ...(config as ExpoConfig),
   extra: {
     ...config.extra,

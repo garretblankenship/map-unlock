@@ -31,9 +31,9 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Open World Life uses your location to clear the fog from places you visit.",
-          "locationAlwaysAndWhenInUsePermission": "Allow \"Always\" so the map keeps unlocking while your phone is in your pocket.",
-          "locationAlwaysPermission": "Allow \"Always\" so the map keeps unlocking while your phone is in your pocket.",
+          "locationWhenInUsePermission": "Open World Life uses your location to clear the fog from the places you visit. Your location stays on your phone.",
+          "locationAlwaysAndWhenInUsePermission": "Open World Life uses your location in the background to keep clearing the fog while your phone is in your pocket, for example on a hike. Your location stays on your phone.",
+          "locationAlwaysPermission": "Open World Life uses your location in the background to keep clearing the fog while your phone is in your pocket, for example on a hike. Your location stays on your phone.",
           "motionUsagePermission": false,
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true,

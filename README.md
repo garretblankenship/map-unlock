@@ -130,6 +130,12 @@ src/
   state/store.ts    shared in-memory state for the UI
 ```
 
+## Launch
+
+Store listing drafts, a privacy policy draft and the full launch checklist
+(store privacy questionnaires, location permission reviews, paid-app setup)
+are in `docs/launch/`.
+
 ## Before launching publicly
 
 - **Boundary files.** Run `pipeline/run.sh` on the planet, upload the
