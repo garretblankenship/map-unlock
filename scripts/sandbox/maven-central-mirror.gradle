@@ -1,0 +1,18 @@
+// Maven Central (repo.maven.apache.org / repo1.maven.org) rate-limits this
+// sandbox with HTTP 429. Rewrite it to Google's mirror wherever it's declared.
+def mirror = 'https://maven-central.storage-download.googleapis.com/maven2/'
+def rewrite = { RepositoryHandler repos ->
+  repos.withType(MavenArtifactRepository).configureEach { repo ->
+    def u = repo.url.toString()
+    if (u.contains('repo.maven.apache.org') || u.contains('repo1.maven.org')) repo.url = mirror
+  }
+}
+beforeSettings { settings ->
+  rewrite(settings.pluginManagement.repositories)
+  rewrite(settings.dependencyResolutionManagement.repositories)
+  rewrite(settings.buildscript.repositories)
+}
+allprojects { project ->
+  rewrite(project.repositories)
+  project.buildscript { rewrite(repositories) }
+}

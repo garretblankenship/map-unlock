@@ -82,7 +82,6 @@ export async function loadCells(): Promise<number[]> {
   return rows.map((r) => r.key);
 }
 
-/** Inserts cells, returning only the ones that weren't already unlocked. */
 /** Cells unlocked at or after a time (for catching up after the background task ran). */
 export async function loadCellsSince(time: number): Promise<number[]> {
   const rows = await getDb().getAllAsync<{ key: number }>('SELECT key FROM cells WHERE unlocked_at >= ?', time);
@@ -93,10 +92,11 @@ export async function loadCellsSince(time: number): Promise<number[]> {
 const INSERT_CHUNK = 400;
 
 /**
- * Inserts cells and returns the ones that weren't already unlocked. When the
- * caller knows what's unlocked (the app is running), duplicates are skipped
- * before touching the database. One statement per few hundred cells instead
- * of one per cell: this runs for every GPS fix.
+ * Inserts cells and returns the ones that weren't already unlocked. That
+ * needs the caller to know what's unlocked (the app is running): duplicates
+ * are then skipped before touching the database. Without `known` every key is
+ * returned. One statement per few hundred cells instead of one per cell: this
+ * runs for every GPS fix.
  */
 export async function saveCells(keys: number[], known?: Set<number>): Promise<number[]> {
   const fresh = known ? keys.filter((k) => !known.has(k)) : keys;
@@ -160,13 +160,13 @@ export async function deleteRegion(id: string): Promise<void> {
   await getDb().runAsync('DELETE FROM regions WHERE id = ?', id);
 }
 
-/** Cached water mask for a tile: undefined if never fetched, null if all land. */
 /** The water cache, after any move out of the progress database has happened. */
 function waterDb(): SQLite.SQLiteDatabase {
   getDb();
   return getCacheDb();
 }
 
+/** Cached water mask for a tile: undefined if never fetched, null if all land. */
 export async function loadWaterMask(tile: string): Promise<Uint8Array | null | undefined> {
   const row = await waterDb().getFirstAsync<{ mask: Uint8Array | null }>('SELECT mask FROM water WHERE tile = ?', tile);
   return row ? row.mask : undefined;
