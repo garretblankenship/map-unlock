@@ -3,7 +3,7 @@
  * multi-row inserts, migrations of databases written by earlier versions,
  * the indexes the queries rely on, and the progress/cache split.
  */
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -11,9 +11,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { RegionRecord } from '../src/core/regions';
 
-const state = vi.hoisted(() => ({ dir: '' }));
+const state = vi.hoisted(() => ({ dir: '', ios: false }));
 
-vi.mock('expo-sqlite', async () => (await import('./expoSqlite')).forDirectory(() => state.dir));
+// Like Android by default: databases straight in the app's folder. With
+// state.ios, like iOS: in Documents/SQLite, inside the app's container.
+vi.mock('expo-sqlite', async () =>
+  (await import('./expoSqlite')).forDirectory(
+    () => state.dir,
+    () => (state.ios ? join(state.dir, 'Documents', 'SQLite') : undefined),
+  ),
+);
 
 type Db = typeof import('../src/services/db');
 
@@ -54,6 +61,7 @@ function region(id: string, createdAt: number, totalCells?: number): RegionRecor
 
 beforeEach(() => {
   state.dir = mkdtempSync(join(tmpdir(), 'owl-db-'));
+  state.ios = false;
 });
 
 afterEach(() => {
@@ -72,6 +80,31 @@ describe('a new install', () => {
   it('uses write-ahead logging (the backup rules include the -wal file)', async () => {
     const db = await launch();
     expect(db.getDb().getFirstSync<{ journal_mode: string }>('PRAGMA journal_mode')?.journal_mode).toBe('wal');
+  });
+});
+
+describe('on iOS', () => {
+  it('keeps the cache out of iCloud backups, in Library/Caches', async () => {
+    state.ios = true;
+    const db = await launch();
+    await db.saveCells([1]);
+    await db.saveWaterMask('t', null);
+    expect(existsSync(join(state.dir, 'Documents', 'SQLite', db.PROGRESS_DB))).toBe(true);
+    expect(existsSync(join(state.dir, 'Library', 'Caches', 'SQLite', db.CACHE_DB))).toBe(true);
+    expect(existsSync(join(state.dir, 'Documents', 'SQLite', db.CACHE_DB))).toBe(false);
+  });
+
+  it('notices when the system emptied the cache, so saved areas fetch again', async () => {
+    state.ios = true;
+    let db = await launch();
+    expect(db.cacheStartedEmpty()).toBe(true); // a new install
+    await db.saveWaterMask('t', null);
+    db = await launch();
+    expect(db.cacheStartedEmpty()).toBe(false);
+    rmSync(join(state.dir, 'Library', 'Caches'), { recursive: true }); // low on storage
+    db = await launch();
+    expect(db.cacheStartedEmpty()).toBe(true);
+    expect(await db.loadWaterMask('t')).toBeUndefined();
   });
 });
 

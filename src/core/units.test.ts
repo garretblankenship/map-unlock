@@ -21,6 +21,8 @@ describe('units', () => {
 
   it('formats imperial areas in acres, then square miles', () => {
     expect(formatArea(40_469, 'imperial')).toBe('10 acres');
+    expect(formatArea(1_000, 'imperial')).toBe('0.2 acres'); // early progress isn't "0 acres"
+    expect(formatArea(20_234, 'imperial')).toBe('5.0 acres');
     expect(formatArea(2_589_988, 'imperial')).toBe('1.00 mi²');
     expect(formatArea(2_589_988_110, 'imperial')).toBe('1,000 mi²');
   });

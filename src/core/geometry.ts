@@ -176,8 +176,56 @@ export function shapeOutlines(shape: Shape): LatLng[][] {
   return shape.polygons.map(([outer]) => ringToLatLngs(outer));
 }
 
+const WORLD = 2 ** BASE_ZOOM;
+
+function boxOf(rings: Ring[], x: (x: number) => number = (v) => v): Shape['bbox'] {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const ring of rings) {
+    for (let i = 0; i < ring.length; i += 2) {
+      const px = x(ring[i]);
+      if (px < minX) minX = px;
+      if (px > maxX) maxX = px;
+      if (ring[i + 1] < minY) minY = ring[i + 1];
+      if (ring[i + 1] > maxY) maxY = ring[i + 1];
+    }
+  }
+  return { minX, minY, maxX, maxY };
+}
+
+/** A shape spanning over half the world is one with parts on both sides of the 180° meridian. */
+function spansAntimeridian(b: Shape['bbox']): boolean {
+  return b.maxX - b.minX > WORLD / 2;
+}
+
+/**
+ * How to draw a shape in one piece. A region across the 180° meridian (Fiji,
+ * Russia, the United States with the Aleutians) has parts at both edges of
+ * the map; moving the western ones a world to the right joins them up.
+ */
+export function drawingFrame(shape: Shape): { bbox: Shape['bbox']; x: (x: number) => number } {
+  const identity = { bbox: shape.bbox, x: (v: number) => v };
+  if (!spansAntimeridian(shape.bbox)) return identity;
+  const x = (v: number) => (v < WORLD / 2 ? v + WORLD : v);
+  const bbox = boxOf(shape.polygons.map(([outer]) => outer), x);
+  return bbox.maxX - bbox.minX < shape.bbox.maxX - shape.bbox.minX ? { bbox, x } : identity;
+}
+
+/**
+ * The area to frame on the map. For a region across the 180° meridian that's
+ * its largest part (the contiguous US, mainland Russia, Viti Levu), rather
+ * than the whole world.
+ */
 export function shapeBoundsLatLng(shape: Shape): { ne: LatLng; sw: LatLng } {
-  const b = shape.bbox;
+  let b = shape.bbox;
+  if (spansAntimeridian(b)) {
+    const area = (r: Shape['bbox']) => (r.maxX - r.minX) * (r.maxY - r.minY);
+    b = shape.polygons
+      .map(([outer]) => boxOf([outer]))
+      .reduce((best, r) => (area(r) > area(best) ? r : best));
+  }
   return {
     ne: { latitude: yToLat(b.minY), longitude: xToLon(b.maxX) },
     sw: { latitude: yToLat(b.maxY), longitude: xToLon(b.minX) },

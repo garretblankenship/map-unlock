@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { fogFromGrid, fogForViewport } from './fog';
-import { boundsOfPoints, fogToGeoJSON, linesToGeoJSON, samplePoints, tileCountForBounds, tileRangeForBounds } from './mapgeo';
+import { fogFromGrid, fogForViewport, fogWindow } from './fog';
+import {
+  boundsOfPoints,
+  fogToGeoJSON,
+  linesToGeoJSON,
+  samplePoints,
+  tileCountForBounds,
+  tileRangeForBounds,
+  viewportFromBounds,
+} from './mapgeo';
 import { BASE_ZOOM, cellAt, parentKey } from './tiles';
 
 const area = (ring: number[][]) => {
@@ -90,5 +98,25 @@ describe('download estimates', () => {
     expect(formatBytes(512)).toBe('1 KB');
     expect(formatBytes(4_200_000)).toBe('4.2 MB');
     expect(formatBytes(250_000_000)).toBe('250 MB');
+  });
+});
+
+describe('viewportFromBounds', () => {
+  it('passes an ordinary view through', () => {
+    expect(viewportFromBounds([-1, 50, 1, 52])).toEqual({ west: -1, south: 50, east: 1, north: 52 });
+  });
+
+  it('keeps a view across the 180° meridian within ±180, on its bigger side', () => {
+    // Reported with east < west (most of the view west of the line)...
+    expect(viewportFromBounds([178, -18, -179, -16])).toEqual({ west: 178, south: -18, east: 180, north: -16 });
+    // ...or past 180 (most of it east of the line).
+    expect(viewportFromBounds([179, -18, 183, -16])).toEqual({ west: -180, south: -18, east: -177, north: -16 });
+    // Entirely past 180.
+    expect(viewportFromBounds([181, -18, 183, -16])).toEqual({ west: -179, south: -18, east: -177, north: -16 });
+  });
+
+  it('gives a fog window that can always be drawn', () => {
+    const w = fogWindow(viewportFromBounds([178, -18, -179, -16]));
+    expect(w.x1).toBeGreaterThanOrEqual(w.x0);
   });
 });

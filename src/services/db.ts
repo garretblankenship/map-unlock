@@ -13,8 +13,9 @@ import type { LatLng } from '../core/tiles';
  *  - regions: boundaries the user has discovered
  *  - meta:    small key/value state (last GPS fix, places to look up, settings)
  *
- * CACHE_DB, data that can be downloaded again, left out of Android backups
- * (whose 25 MB limit would otherwise be at risk):
+ * CACHE_DB, data that can be downloaded again, left out of backups (Android's
+ * have a 25 MB limit; Apple asks for this). On iOS it lives in Library/Caches,
+ * which the system may empty when storage runs low:
  *  - water:          cached water masks per map tile (see core/water.ts)
  *  - boundary_files: downloaded boundary tiles and regions, by URL
  */
@@ -23,16 +24,40 @@ export const CACHE_DB = 'cache.db';
 
 let db: SQLite.SQLiteDatabase | null = null;
 let cacheDb: SQLite.SQLiteDatabase | null = null;
+let cacheWasEmpty = false;
+
+/**
+ * Where the cache database goes. expo-sqlite keeps databases in Documents on
+ * iOS, which iCloud backs up; Library/Caches, its sibling in the app's
+ * container, isn't. Elsewhere the default is fine (Android's backup rules
+ * leave the cache out).
+ */
+function cacheDirectory(): string | undefined {
+  const dir = SQLite.defaultDatabaseDirectory as string | undefined;
+  const documents = /\/Documents\/SQLite\/?$/;
+  return dir && documents.test(dir) ? dir.replace(documents, '/Library/Caches/SQLite') : undefined;
+}
 
 export function getCacheDb(): SQLite.SQLiteDatabase {
   if (cacheDb) return cacheDb;
-  cacheDb = SQLite.openDatabaseSync(CACHE_DB);
+  cacheDb = SQLite.openDatabaseSync(CACHE_DB, undefined, cacheDirectory());
+  cacheWasEmpty = !cacheDb.getFirstSync("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'water'");
   cacheDb.execSync(`
     PRAGMA journal_mode = WAL;
     CREATE TABLE IF NOT EXISTS water (tile TEXT PRIMARY KEY NOT NULL, mask BLOB, fetched_at INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS boundary_files (url TEXT PRIMARY KEY NOT NULL, body TEXT, fetched_at INTEGER NOT NULL);
   `);
   return cacheDb;
+}
+
+/**
+ * Whether the cache started out empty this time the app ran: a new install,
+ * or iOS cleared it to free space. Areas saved for offline use then need
+ * their water and boundary files again.
+ */
+export function cacheStartedEmpty(): boolean {
+  getCacheDb();
+  return cacheWasEmpty;
 }
 
 /** Earlier versions kept the water cache in the progress database; move it out. */

@@ -10,6 +10,7 @@
  *
  *   vi.mock('expo-sqlite', async () => (await import('./expoSqlite')).forDirectory(() => dir));
  */
+import { mkdirSync } from 'node:fs';
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import { join } from 'node:path';
 
@@ -98,9 +99,20 @@ export class ShimDatabase {
   }
 }
 
-/** An expo-sqlite module whose databases are files in a directory. */
-export function forDirectory(dir: () => string) {
+/**
+ * An expo-sqlite module whose databases are files in a directory, or in
+ * `defaultDirectory()` when given (e.g. an iOS-like ".../Documents/SQLite").
+ * A directory passed to openDatabaseSync is used as is, as on a phone.
+ */
+export function forDirectory(dir: () => string, defaultDirectory: () => string | undefined = () => undefined) {
   return {
-    openDatabaseSync: (name: string) => new ShimDatabase(join(dir(), name)),
+    get defaultDatabaseDirectory() {
+      return defaultDirectory() ?? dir();
+    },
+    openDatabaseSync: (name: string, _options?: unknown, directory?: string) => {
+      const d = directory ?? defaultDirectory() ?? dir();
+      mkdirSync(d, { recursive: true });
+      return new ShimDatabase(join(d, name));
+    },
   };
 }

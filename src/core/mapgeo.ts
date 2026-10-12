@@ -12,7 +12,22 @@ import type { LatLng } from './tiles';
 export type Bounds = [west: number, south: number, east: number, north: number];
 type Position = [number, number];
 
+/**
+ * The map's visible bounds as a viewport within ±180°. MapLibre can report a
+ * view across the 180° meridian with east < west, or past ±180; the fog then
+ * covers whichever side of the line holds more of the view.
+ */
 export function viewportFromBounds([west, south, east, north]: Bounds): Viewport {
+  if (east < west) east += 360;
+  if (west >= 180) [west, east] = [west - 360, east - 360];
+  if (east <= -180) [west, east] = [west + 360, east + 360];
+  if (east > 180) {
+    if (180 - west >= east - 180) east = 180;
+    else [west, east] = [-180, east - 360];
+  } else if (west < -180) {
+    if (east + 180 >= -180 - west) west = -180;
+    else [west, east] = [west + 360, 180];
+  }
   return { west, south, east, north };
 }
 

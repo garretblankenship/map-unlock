@@ -1,4 +1,4 @@
-import type { Shape } from './geometry';
+import { type Shape, drawingFrame } from './geometry';
 
 /**
  * A region's outline as an SVG path that fits a box, for share cards. Only
@@ -10,7 +10,8 @@ import type { Shape } from './geometry';
  * keeps a country's coastline to a manageable path.
  */
 export function outlinePath(shape: Shape, width: number, height: number, padding = 0, minStep = 0.5): string {
-  const { minX, minY, maxX, maxY } = shape.bbox;
+  const frame = drawingFrame(shape);
+  const { minX, minY, maxX, maxY } = frame.bbox;
   const bw = Math.max(maxX - minX, 1e-9);
   const bh = Math.max(maxY - minY, 1e-9);
   const scale = Math.min((width - 2 * padding) / bw, (height - 2 * padding) / bh);
@@ -26,7 +27,7 @@ export function outlinePath(shape: Shape, width: number, height: number, padding
       let n = 0;
       let d = '';
       for (let i = 0; i < ring.length; i += 2) {
-        const x = ox + (ring[i] - minX) * scale;
+        const x = ox + (frame.x(ring[i]) - minX) * scale;
         const y = oy + (ring[i + 1] - minY) * scale;
         const last = i + 2 >= ring.length;
         if (n > 0 && !last && Math.abs(x - lastX) < minStep && Math.abs(y - lastY) < minStep) continue;

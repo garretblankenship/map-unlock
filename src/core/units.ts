@@ -32,7 +32,9 @@ export function formatArea(m2: number, units: UnitSystem): string {
     const mi2 = m2 / M2_PER_MI2;
     // Below a tenth of a square mile, acres read better (1 mi² = 640 acres).
     if (mi2 >= 0.1) return `${num(mi2, digitsFor(mi2))} mi²`;
-    return `${num(Math.round(m2 / M2_PER_ACRE), 0)} acres`;
+    // A tenth of an acre is a city block's corner; whole acres would show 0 at first.
+    const acres = m2 / M2_PER_ACRE;
+    return `${num(acres, acres < 10 ? 1 : 0)} acres`;
   }
   if (m2 >= M2_PER_KM2) {
     const km2 = m2 / M2_PER_KM2;

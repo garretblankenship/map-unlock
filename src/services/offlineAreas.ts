@@ -17,7 +17,7 @@ import {
 import type { LatLng } from '../core/tiles';
 import { t } from '../i18n';
 import { boundaryFilesConfigured, prefetchBoundaries } from './boundaryFiles';
-import { getMeta, setMeta } from './db';
+import { cacheStartedEmpty, getMeta, setMeta } from './db';
 import { MAP_STYLE_URL } from './mapStyle';
 import { backoffEndsAt, isOnline, isTransient, onConnectivityChange } from './net';
 import { water } from './water';
@@ -103,12 +103,14 @@ class OfflineAreas {
     OfflineManager.setTileCountLimit(1_000_000);
     OfflineManager.setProgressEventThrottle(750);
     await OfflineManager.setMaximumAmbientCacheSize(AMBIENT_CACHE_BYTES);
+    // The phone cleared the cache: water and boundary files must be fetched again.
+    const refetch = cacheStartedEmpty();
     for (const pack of await OfflineManager.getPacks()) {
       const meta = pack.metadata as Partial<PackMetadata>;
       const entry = this.track(pack.id, meta.name ?? t('offline.defaultName'), pack.bounds, meta.createdAt ?? 0);
-      entry.water.complete = (await getMeta<boolean>(waterDoneKey(pack.id))) === true;
+      entry.water.complete = !refetch && (await getMeta<boolean>(waterDoneKey(pack.id))) === true;
       entry.boundaries.complete =
-        !boundaryFilesConfigured || (await getMeta<boolean>(boundariesDoneKey(pack.id))) === true;
+        !boundaryFilesConfigured || (!refetch && (await getMeta<boolean>(boundariesDoneKey(pack.id))) === true);
       this.applyStatus(entry, await pack.status());
       if (!entry.map.complete) await this.watch(pack, true);
       this.downloadWater(entry);
