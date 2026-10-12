@@ -30,8 +30,8 @@ whole country.
   forests, states and countries. Water doesn't count against you.
 • Built for the outdoors: works with no signal. Save areas before a trip and
   the map, lakes and rivers, and park boundaries come with you.
-• Keeps exploring in your pocket, and eases off the GPS when you stop to
-  save battery.
+• Keeps exploring in your pocket, collecting locations in batches to go easy
+  on the battery.
 • Share your progress: a card with the region's outline and your percentage,
   never the streets you've explored.
 • Private by design: your location history stays on your phone. No accounts,

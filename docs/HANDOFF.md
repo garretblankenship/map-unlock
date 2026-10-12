@@ -1,7 +1,8 @@
 # Handoff: where Open World Life stands
 
-_Last updated 2026-10-12. Read this first in a new session, then continue
-with "Next up" below. Work happens on branch `ccr-7f03759b-ixjurl`._
+_Last updated 2026-10-12 (second session). Read this first in a new session,
+then continue with "Next up" below. The last work is on branch
+`ccr-6badf225-4v5kch` (the one before was `ccr-7f03759b-ixjurl`)._
 
 ## What the app is
 
@@ -34,7 +35,7 @@ Repo layout (details in README.md):
 | Regions | Own boundary files built from OSM, hosted on CloudFront (not Nominatim) |
 | Region types | Neighbourhood, city, county, park & forest, state, country |
 | Reveal radius | 50 m for every kind of travel |
-| Battery | Smart saving: full GPS while moving, low power when still |
+| Battery | Smart saving: full GPS while moving, low power when still. **iOS only**: Android can't change the location service's settings from the background (expo-location throws), so it keeps full GPS while background exploring is on (see "What's done", 10) |
 | Sharing | Image card with outline + percentage only, never streets |
 | Search | None; regions are added only by visiting |
 | Location permission | "While Using" first; "Always" only after an explainer when background exploring is turned on |
@@ -44,6 +45,7 @@ Repo layout (details in README.md):
 | Hosting | AWS: Amplify Gen 2 for everything possible, CloudFront CDN |
 | Domain | openworldlife.com (registered); support@openworldlife.com |
 | Loading UI | A loading pill for anything that may take over ~0.5 s |
+| Removing a region | It stays removed (lookups don't bring it back) until progress is reset |
 
 ## What's done
 
@@ -67,31 +69,63 @@ All committed and pushed. Highlights, in order:
    hidden tabs, position/coverage throttles.
 6. Loading pill for slow work (`src/core/busy.ts`, `BusyIndicator.tsx`).
 
-State at handoff: 99 tests pass; typecheck (app + pipeline + web) clean; lint
-0 errors / 3 old `exhaustive-deps` warnings; `expo-doctor` 21/21; iOS and
-Android JS bundles build; backend synth checks pass (`cd web && npm run synth`).
+Second session (2026-10-12), the agreed items 1–4:
+
+7. **Android compiles natively**, debug and release (arm64). One command:
+   `scripts/sandbox/build-android.sh [scratch-dir] [assembleDebug|assembleRelease]`
+   (prebuilds a scratch copy of HEAD, installs the SDK, mirrors Maven
+   Central to Google's copy, which fixed the 429s). The release APK (~59 MB)
+   holds the Hermes bundle. The build showed Expo's template adding
+   SYSTEM_ALERT_WINDOW and storage permissions; they're now blocked in
+   `app.json`. Only MapLibre's own Kotlin deprecation warnings remain.
+8. **Database code tested against real SQLite** (`test/`): an expo-sqlite
+   stand-in on Node's built-in `node:sqlite` runs `db.ts` for real (inserts,
+   migrations from a first-release database, the time index, the cache split,
+   the iOS folder layout).
+9. **Render tests for every screen** (`__tests__/`, Jest + jest-expo + React
+   Native Testing Library): the whole app through Expo Router with a real
+   database, fake GPS/permissions, a no-op map, no signal. 24 tests.
+10. **Full code review** by four reviewers (GPS, offline/network, DB/store/
+    screens, website/CDN); fixes, all committed:
+    - Background task registered from `index.ts` (the new `main`): a headless
+      relaunch (Android killed the app mid-walk) loads no routes, so a task
+      defined in a route module dropped every batch.
+    - Android motion switching removed (see Decisions); iOS records a switch
+      only once applied. On-screen GPS can't run in the background after an
+      iOS background launch; overlapping starts can't leak a watcher.
+    - Trail: cells saved before the last fix; no straight-line fill after a
+      long break (>3 min and >200 m); short way across 180°; GPS wakes after
+      300 m whatever the accuracy; 3 m map throttle compares with the last
+      shown position.
+    - Boundary files: parsed before caching (a captive-portal page cached as
+      meta.json used to break lookups until reinstall); in-flight requests
+      shared. Lookup queue: one failing place no longer blocks the rest
+      (a saved area answers offline); server errors still stop the run;
+      single-flight; no duplicate regions; reset during startup is safe.
+    - Offline areas: downloads stop on weak signal and resume when the
+      backoff ends; water prefetch doesn't fill memory or redraw the fog;
+      status after createPack; errors clear on recovery.
+    - iOS: `cache.db` moved from Documents (iCloud-backed) to Library/Caches;
+      if iOS empties it, saved areas re-download water and boundaries.
+    - 180° meridian: share cards draw such regions in one piece; picking one
+      frames its largest part; views across 180° can't crash the fog.
+    - Website/CDN: upload script refuses to overwrite a published version and
+      writes meta.json last; CDN root is a 404 (not a bucket listing); the
+      `main` branch build fails while `site.ts` has placeholders; 404 page
+      noindex; privacy policy now says area downloads reveal roughly where an
+      area is and that no CDN logs are kept; "location never leaves your
+      phone" became "location history stays on your phone" everywhere.
+
+State at handoff: 129 Vitest + 24 Jest tests pass (`npm test` runs both);
+typecheck (app + pipeline + test/ + __tests__/ + web) clean; lint 0 errors /
+3 old `exhaustive-deps` warnings; `expo-doctor` 21/21; iOS and Android JS
+bundles export; Android debug and release APKs build; web build + synth pass.
 
 ## Next up (agreed plan, do in this order)
 
-Nothing here needs a phone. The owner approved starting with 1–4.
+Nothing here needs a phone. Items 1–4 of the earlier plan are done (see
+"What's done", 7–10); these remain, in order:
 
-1. **Compile the Android app natively.** Never succeeded before because Maven
-   Central rate-limited (HTTP 429); on 2026-10-12 it answered 200 again.
-   Recipe: `npx expo prebuild --no-install` in a scratch copy (never commit
-   `android/`/`ios/`), install the Android SDK (cmdline-tools from
-   dl.google.com; platform 36, build-tools 36.0.0, NDK 27.1.12297006,
-   cmake 3.22.1), then `./gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a`.
-   If 429s return, a Gradle init script mirroring Maven Central to
-   `https://maven-central.storage-download.googleapis.com/maven2/` didn't
-   reach the included builds last time; try it in `settings.gradle`
-   pluginManagement too.
-2. **Test database SQL against real SQLite** (e.g. better-sqlite3 behind an
-   expo-sqlite-shaped shim): multi-row inserts, the `total_cells` column
-   migration, the `cells_by_time` index, moving water into `cache.db`.
-3. **Render tests for every screen** (jest-expo + React Native Testing
-   Library alongside vitest) to catch crashes without a device.
-4. **Full code review** of the session's work (GPS, offline, DB, boundaries,
-   website) and fix findings.
 5. Tune boundary classification for more countries using BBBike city
    extracts (UK, France, Canada, Australia, Brazil, India, Spain…). Known
    issues: German kreisfreie Städte show as "County"; Berlin has no city.
@@ -102,28 +136,49 @@ Nothing here needs a phone. The owner approved starting with 1–4.
 8. Optional features: "download saved areas on Wi-Fi only"; a placeholder app
    icon/splash in the website's fog-trail style (current icon is Expo's
    template "A").
+9. Review findings left open on purpose (small, or need a device to verify):
+   - Regions across 180° still get a world-wide bounding box for water tiles
+     (coarse water for the US/Russia) and can't be saved offline (Fiji is
+     refused as too big). Needs bounds that wrap, checked against MapLibre
+     on a device.
+   - `saveCells` uses a non-exclusive transaction, so another write landing
+     during it would roll back with it on an error; `resetAll` isn't one
+     transaction. Exclusive transactions open a second connection
+     (risk of "database is locked"), so this was left as is.
+   - Offline boundary prefetch stops at 300 tiles / 600 region files and
+     still calls the area complete (only very dense areas reach the cap).
+   - A region being prepared misses cells unlocked during its preparation
+     (only the save itself is covered now); corrected at the next launch.
 
 ## Waiting on the owner
 
 - `web/src/site.ts`: publisher name, governing law, policy date.
-- Is openworldlife.com in Route 53 or another registrar?
+- Is openworldlife.com in Route 53 or another registrar? Now also needed for
+  **a custom domain on the map-data CDN (e.g. data.openworldlife.com) before
+  the first store build**: store builds bake in BOUNDARIES_URL/MAP_STYLE_URL
+  and a `dxxxx.cloudfront.net` address dies with the stack (web/README.md).
+- Review the privacy policy wording changed this session (what area
+  downloads reveal; no CDN logs) before publishing.
 - iPad: keep `ios.supportsTablet` (needs iPad screenshots/testing) or turn off for v1?
 - Final app icon artwork (or approve a placeholder).
 - Later, with a computer/phone: create the Amplify app (monorepo root `web`),
   run the planet pipeline and `web/scripts/upload-map-data.sh`, put
   BOUNDARIES_URL and MAP_STYLE_URL in `eas.json` (production builds refuse
   without them), device testing (battery on a long walk with a stop, airplane
-  mode hike with a saved area), store screenshots.
+  mode hike with a saved area; Android: force-stop or kill the app mid-walk
+  with background exploring on and check the walk is still recorded; iOS:
+  saved area still works after "Offload"/low storage), store screenshots.
 
 ## How to verify changes
 
 ```bash
-npm run typecheck                 # app + pipeline
+npm run typecheck                 # app, pipeline, test/, __tests__/
 npx expo lint
-npm test                          # vitest: core, services, store, pipeline contract
+npm test                          # Vitest (unit, real SQLite) then Jest (screens)
 npx expo export --platform android --platform ios --output-dir /tmp/export
 npx -y expo-doctor
 cd web && npm run typecheck && npm run build && npm run synth
+scripts/sandbox/build-android.sh  # native Android build (~10 min first time)
 ```
 
 Per AGENTS.md: use `npx expo install` for app packages and check the SDK 57
@@ -143,5 +198,13 @@ docs before touching Expo APIs.
 - `pkill -f <pattern>` inside a command whose text contains the pattern kills
   that command itself; kill by PID instead.
 - The app's `tsconfig.json` sets `"types": []` (no Node globals in app code);
-  tests needing Node APIs live in `pipeline/`. Test-only `?raw` imports are
-  typed in `src/types/raw.d.ts`.
+  tests needing Node APIs live in `pipeline/` or `test/` (Vitest) and
+  `__tests__/` (Jest), each with its own tsconfig. Test-only `?raw` imports
+  are typed in `src/types/raw.d.ts`.
+- Screen tests: `renderRouter` turns on Jest fake timers mid-render, so
+  `package.json` "jest.fakeTimers" fakes only `Date`. Don't wrap GPS/alert
+  helpers in `act()`: overlapping the app's own async updates stalls every
+  later render in the file. Jest finds `expo-asset` (nested under `expo/`)
+  through `modulePaths`.
+- Maven Central answers 429 at times; `scripts/sandbox/maven-central-mirror.gradle`
+  (installed by the build script into `~/.gradle/init.d/`) fixes it.

@@ -109,6 +109,7 @@ a no-op map, fake GPS and no signal. Each test file is a fresh phone.
 ## Project layout
 
 ```
+index.ts            entry: registers the background location task, then Expo Router
 src/
   app/              screens (Expo Router)
     _layout.tsx     app start-up and the root stack
@@ -158,6 +159,8 @@ are in `docs/launch/`.
 - **Map style URL.** Host `assets/map/style.json` yourself and set
   `MAP_STYLE_URL` (see *Map style* above).
 - **Battery.** Measure real-world drain on long hikes with both phones
-  and tune `MOTION_SETTINGS` (`src/core/motion.ts`) if needed.
+  and tune `MOTION_SETTINGS` (`src/core/motion.ts`) if needed. Dropping to
+  low power when still is iOS only: Android can't change the location
+  service's settings from the background, so it keeps full GPS (batched).
 - **Store review.** Apple and Google both scrutinize "Always" location
   access. The permission texts are in `app.json`.
