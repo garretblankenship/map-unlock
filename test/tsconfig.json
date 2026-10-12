@@ -1,0 +1,16 @@
+{
+  // Tests that need Node.js APIs and exercise app modules (like
+  // pipeline/contract.test.ts). Kept out of the app's tsconfig, which has no
+  // Node globals.
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["**/*.ts"]
+}

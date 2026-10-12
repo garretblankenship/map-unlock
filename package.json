@@ -46,7 +46,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit && tsc -p pipeline --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p pipeline --noEmit && tsc -p test --noEmit",
     "lint": "expo lint",
     "boundaries": "pipeline/run.sh"
   },
