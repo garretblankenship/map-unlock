@@ -94,9 +94,17 @@ through the plugin's `locales` option.
 ### Tests
 
 ```bash
-npm test           # grid, reveal, fog tracing, water masks and completion maths
+npm test           # everything below
+npm run test:unit  # Vitest: game logic, services, store, pipeline contract,
+                   #   and the database code against real SQLite (test/)
+npm run test:screens  # Jest (jest-expo): every screen rendered in the real
+                   #   app, with native modules faked (__tests__/)
 npm run typecheck
 ```
+
+The screen tests start the whole app (`renderApp` in `__tests__/helpers.tsx`)
+with a real database (Node's built-in SQLite standing in for expo-sqlite),
+a no-op map, fake GPS and no signal. Each test file is a fresh phone.
 
 ## Project layout
 

@@ -1,0 +1,9 @@
+{
+  // Screen render tests run in Jest (jest-expo), unlike the Vitest unit tests.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["jest", "node"]
+  },
+  "include": ["**/*.ts", "**/*.tsx", "../src/types/*.d.ts"],
+  "exclude": []
+}
