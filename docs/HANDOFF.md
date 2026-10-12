@@ -1,8 +1,8 @@
 # Handoff: where Open World Life stands
 
 _Last updated 2026-10-12 (second session). Read this first in a new session,
-then continue with "Next up" below. The last work is on branch
-`ccr-6badf225-4v5kch` (the one before was `ccr-7f03759b-ixjurl`)._
+then continue with "Next up" below. `main` is the default branch and holds
+all work so far (the earlier `ccr-*` session branches are merged into it)._
 
 ## What the app is
 
