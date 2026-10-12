@@ -63,8 +63,8 @@ account to delete (data deletion: in-app reset or uninstall).
   "Always" after the in-app explainer when the player turns on background
   exploring. In the review notes, say: "Background location keeps clearing
   the map while the phone is in a pocket on walks and hikes. Turn it on with
-  the 'Background exploring' button on the map. Location never leaves the
-  device."
+  the 'Background exploring' button on the map. Location history stays on
+  the device."
 - **Google Play:** background location needs the Permissions Declaration
   form in Play Console, with a short video showing the explainer, the system
   prompt, and the feature working with the app in the background. The

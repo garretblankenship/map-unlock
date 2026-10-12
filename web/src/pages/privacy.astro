@@ -22,8 +22,8 @@ import { site } from '../site';
     <ul>
       <li>
         <strong>Your location.</strong> The app uses your phone’s location to work out which parts of the map you’ve
-        visited. Location is processed on your phone only. It is never sent to us, and we keep no record of where you have
-        been.
+        visited. That happens on your phone. Your position and your trail are never sent to us, and we keep no record of
+        where you have been. (Downloading map data for an area does reveal roughly where that area is; see below.)
       </li>
       <li>
         <strong>Your progress.</strong> The areas you’ve unlocked, the regions you’ve visited and your settings are stored
@@ -40,7 +40,10 @@ import { site } from '../site';
     <p>
       To show the map and the regions you explore, the app downloads public map data from the services below. As with any
       website, they receive your device’s IP address and which part of the map is being requested, which is needed to
-      send the right data. They do not receive your location history, and we send them no information about you.
+      send the right data. When you arrive somewhere the app hasn’t loaded yet, it downloads the map, water and region
+      boundaries for that area, so the request shows roughly where you are at that moment (about the size of a town).
+      They do not receive your exact position or your location history, and we send them no other information about
+      you.
     </p>
     <ul>
       <li>
@@ -49,8 +52,7 @@ import { site } from '../site';
       </li>
       <li>
         <strong>Our content delivery network</strong> (Amazon CloudFront, operated for us by Amazon Web Services): region
-        boundaries and the map style. Like any web server it keeps standard request logs for operating the service; we do
-        not use them to identify or track anyone.
+        boundaries and the map style. We have not turned on request logging, so we keep no record of these requests.
       </li>
     </ul>
     <p>Map data © OpenStreetMap contributors.</p>

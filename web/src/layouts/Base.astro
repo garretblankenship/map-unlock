@@ -5,8 +5,10 @@ import { site } from '../site';
 interface Props {
   title?: string;
   description?: string;
+  /** For pages that shouldn't be indexed or have a canonical URL (the 404 page). */
+  noindex?: boolean;
 }
-const { title, description = site.description } = Astro.props;
+const { title, description = site.description, noindex = false } = Astro.props;
 const pageTitle = title ? `${title} · ${site.name}` : `${site.name}: ${site.tagline}`;
 const year = new Date().getFullYear();
 const canonical = new URL(Astro.url.pathname, site.url).href;
@@ -21,7 +23,7 @@ const canonical = new URL(Astro.url.pathname, site.url).href;
     <meta name="description" content={description} />
     <meta name="theme-color" content="#123B2C" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="canonical" href={canonical} />
+    {noindex ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={canonical} />}
     <meta property="og:type" content="website" />
     <meta property="og:url" content={canonical} />
     <meta property="og:site_name" content={site.name} />

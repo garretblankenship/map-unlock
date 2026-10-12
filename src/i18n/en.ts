@@ -156,7 +156,7 @@ export const en = {
   'background.body':
     'To unlock the map while your phone is in your pocket, Open World Life needs to use your location ' +
     'even when the app isn’t open.',
-  'background.point.private': 'Your location never leaves your phone. There are no accounts and no servers.',
+  'background.point.private': 'Where you go stays on your phone. There are no accounts, and nothing is uploaded.',
   'background.point.battery': 'GPS backs off when you’re standing still, to save battery on long days out.',
   'background.point.stop': 'Turn it off any time from the map.',
   'background.ios': 'On the next screen, choose “Change to Always Allow”.',

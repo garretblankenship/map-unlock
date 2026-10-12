@@ -5,7 +5,8 @@
 #
 # <boundaries-out-dir> is the output of pipeline/run.sh. [version] names
 # the folder (default: v1-<today>); every upload goes to a new folder so
-# files never change once published and can be cached for a year.
+# files never change once published and can be cached for a year. An
+# existing version is refused; rerun with a new name (e.g. v1-2026-10-12b).
 #
 # Needs the AWS CLI (signed in to the account the Amplify app runs in) and
 # web/amplify_outputs.json for the branch, from:
@@ -30,8 +31,18 @@ cdn="$(read_output mapDataUrl)"
 
 immutable=(--content-type application/json --cache-control 'public, max-age=31536000, immutable')
 
+# Published files are cached for a year, by CloudFront and on phones, so a
+# version is never written twice: a second upload would mix two builds.
+if aws s3 ls "s3://$bucket/boundaries/$version/meta.json" >/dev/null 2>&1; then
+  echo "boundaries/$version is already published; pass a new version name." >&2
+  exit 1
+fi
+
+# meta.json goes last: its presence marks a complete upload.
 echo "Uploading boundaries to s3://$bucket/boundaries/$version/ ..."
-aws s3 sync "$src" "s3://$bucket/boundaries/$version/" "${immutable[@]}" --exclude '.tmp/*' --only-show-errors
+aws s3 sync "$src" "s3://$bucket/boundaries/$version/" "${immutable[@]}" \
+  --exclude '.tmp/*' --exclude meta.json --only-show-errors
+aws s3 cp "$src/meta.json" "s3://$bucket/boundaries/$version/meta.json" "${immutable[@]}" --only-show-errors
 
 # The style is named by its content, so a changed style gets a new URL and
 # offline downloads made with the old one keep matching.

@@ -43,6 +43,9 @@ export class MapData extends Construct {
 
     this.distribution = new cloudfront.Distribution(this, 'Cdn', {
       comment: 'Open World Life map data',
+      // An object that never exists: "/" is a 404 rather than a bucket listing
+      // (CloudFront may list the bucket, see below).
+      defaultRootObject: 'index.json',
       defaultBehavior: {
         origin: origins.S3BucketOrigin.withOriginAccessControl(this.bucket),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.HTTPS_ONLY,

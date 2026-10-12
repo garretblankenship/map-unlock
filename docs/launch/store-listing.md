@@ -34,8 +34,8 @@ whole country.
   save battery.
 • Share your progress: a card with the region's outline and your percentage,
   never the streets you've explored.
-• Private by design: your location never leaves your phone. No accounts, no
-  ads, no tracking.
+• Private by design: your location history stays on your phone. No accounts,
+  no ads, no tracking.
 • Dark mode, miles or kilometres.
 
 Map data © OpenStreetMap contributors, map tiles by OpenFreeMap.

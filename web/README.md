@@ -86,10 +86,14 @@ bundled, which `npm ci` reports as an out-of-sync lockfile.
 
 ## Notes
 
-- **Custom domain for the CDN** (e.g. `data.openworldlife.com`): needs an
-  ACM certificate in us-east-1 and the domain on the distribution; add both
-  in `amplify/custom/mapData/resource.ts`. Not required: the app doesn't show
-  the CDN address.
+- **Custom domain for the CDN** (e.g. `data.openworldlife.com`): set this up
+  **before the first store build**. Store builds have BOUNDARIES_URL and
+  MAP_STYLE_URL baked in and can't be changed later (no over-the-air
+  updates), and a `dxxxx.cloudfront.net` address only lives as long as this
+  stack: recreating the Amplify app or branch gives a new one, and every
+  released app would lose region lookups. Needs an ACM certificate in
+  us-east-1 and the domain on the distribution; add both in
+  `amplify/custom/mapData/resource.ts`, plus a DNS record for the domain.
 - **Removal:** the bucket is kept if the stack is deleted (rebuilding the
   planet takes hours). Delete it by hand if you really mean to.
 - **Branches:** every Amplify branch gets its own bucket and CDN. Publish
