@@ -10,6 +10,8 @@ const h = vi.hoisted(() => ({
   records: [] as RegionRecord[],
   cells: [] as number[],
   lookups: [] as string[],
+  /** Lookups of these places fail as if there were no signal. */
+  noSignalAt: new Set<string>(),
   savedTotals: new Map<string, number>(),
 }));
 
@@ -37,7 +39,12 @@ vi.mock('../services/db', () => ({
 }));
 vi.mock('../services/boundaries', () => ({
   regionsAt: async (lat: number, lon: number) => {
-    h.lookups.push(`${lat.toFixed(4)},${lon.toFixed(4)}`);
+    const at = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+    h.lookups.push(at);
+    if (h.noSignalAt.has(at)) {
+      const { NetworkError } = await import('../services/net');
+      return { regions: [], error: new NetworkError('No connection') };
+    }
     return { regions: [] };
   },
 }));
@@ -117,3 +124,19 @@ describe('loading indicator', () => {
   });
 });
 
+describe('lookup queue', () => {
+  it("doesn't let a place that fails hold up the ones behind it", async () => {
+    await store.load();
+    h.meta.set('p', []);
+    h.noSignalAt.add('10.0000,10.0000');
+    await store.queueLookups([
+      { latitude: 10, longitude: 10 },
+      { latitude: 20, longitude: 20 },
+    ]);
+    await vi.waitFor(() => expect(store.discovering).toBe(false));
+    expect(h.lookups).toEqual(['10.0000,10.0000', '20.0000,20.0000']);
+    expect(h.meta.get('p')).toEqual([{ latitude: 10, longitude: 10 }]);
+    expect(store.pendingPlaces).toBe(1);
+    expect(store.lastError).toBeNull(); // no signal isn't an error worth showing
+  });
+});

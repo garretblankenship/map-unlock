@@ -12,7 +12,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { build } from './build.ts';
 
-const state = vi.hoisted(() => ({ url: '', online: true, cache: new Map<string, string | null>(), requests: 0 }));
+const state = vi.hoisted(() => ({ url: '', online: true, portal: false, cache: new Map<string, string | null>(), requests: 0 }));
 
 vi.mock('expo-constants', () => ({ default: { expoConfig: { extra: { boundariesUrl: state.url } } } }));
 vi.mock('expo-network', () => ({}));
@@ -61,6 +61,8 @@ beforeAll(async () => {
   await build(input, out);
 
   server = createServer((req, res) => {
+    // A Wi-Fi network that answers everything with its sign-in page.
+    if (state.portal) return void res.writeHead(200, { 'content-type': 'text/html' }).end('<html>Sign in</html>');
     try {
       const body = readFileSync(join(out, decodeURIComponent(req.url ?? '').replace(/^\/+/, '')));
       res.writeHead(200, { 'content-type': 'application/json' }).end(body);
@@ -116,5 +118,19 @@ describe('boundary files: pipeline → app', () => {
     const elsewhere = await boundaryRegionsAt(45.2, 5.2);
     expect(elsewhere.error).toBeDefined();
     state.online = true;
+  });
+
+  it("doesn't keep a Wi-Fi sign-in page in place of a boundary file", async () => {
+    const { boundaryRegionsAt } = await import('../src/services/boundaryFiles');
+    const { NetworkError } = await import('../src/services/net');
+    state.portal = true;
+    const cached = state.cache.size;
+    const behind = await boundaryRegionsAt(45.1, 6.9);
+    expect(behind.error).toBeInstanceOf(NetworkError); // retried later, quietly
+    expect(state.cache.size).toBe(cached);
+    state.portal = false;
+    const after = await boundaryRegionsAt(45.1, 6.9);
+    expect(after.error).toBeUndefined();
+    expect(after.regions.map((r) => r.name)).toEqual(['Testland']);
   });
 });

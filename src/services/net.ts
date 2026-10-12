@@ -44,6 +44,11 @@ function noteAnswer() {
   pausedUntil = 0;
 }
 
+/** When requests may be tried again after a failure (0 if they may now). */
+export function backoffEndsAt(): number {
+  return pausedUntil;
+}
+
 /** For tests. */
 export function resetBackoff() {
   noteAnswer();

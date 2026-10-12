@@ -47,21 +47,37 @@ class WaterService {
   }
 
   /** Loads every tile in the range (from cache or network). Rejects if any fail. */
-  async ensure(range: TileRange): Promise<void> {
+  ensure(range: TileRange): Promise<void> {
+    return this.loadRange(range, true);
+  }
+
+  /**
+   * Saves every tile in the range on the phone, for an area saved for
+   * offline use, without loading them into memory or redrawing the map.
+   */
+  prefetch(range: TileRange): Promise<void> {
+    return this.loadRange(range, false);
+  }
+
+  private async loadRange(range: TileRange, keep: boolean): Promise<void> {
     const jobs: Promise<void>[] = [];
     for (let x = range.x0; x <= range.x1; x++) {
-      for (let y = range.y0; y <= range.y1; y++) jobs.push(this.load(range.z, x, y));
+      for (let y = range.y0; y <= range.y1; y++) jobs.push(this.load(range.z, x, y, keep));
     }
     const results = await Promise.allSettled(jobs);
     const failed = results.find((r) => r.status === 'rejected');
     if (failed) throw (failed as PromiseRejectedResult).reason;
   }
 
-  private load(z: number, x: number, y: number): Promise<void> {
+  /** Makes sure a tile is cached on the phone; `keep` also holds it in memory for lookups. */
+  private load(z: number, x: number, y: number, keep: boolean): Promise<void> {
     const id = tileId(z, x, y);
     if (this.masks.has(id)) return Promise.resolve();
     const existing = this.inflight.get(id);
-    if (existing) return existing;
+    if (existing) {
+      // A prefetch of the same tile doesn't keep it; read it from the cache after.
+      return keep ? existing.then(() => (this.masks.has(id) ? undefined : this.load(z, x, y, true))) : existing;
+    }
     const failed = this.failedAt.get(id);
     if (failed && Date.now() - failed < RETRY_AFTER_MS) {
       return Promise.reject(new NetworkError('Water data unavailable (offline?)'));
@@ -73,9 +89,11 @@ class WaterService {
         mask = await this.withSlot(() => this.fetchMask(z, x, y));
         await saveWaterMask(id, mask);
       }
-      this.masks.set(id, mask);
       this.failedAt.delete(id);
-      this.listeners.forEach((fn) => fn());
+      if (keep) {
+        this.masks.set(id, mask);
+        this.listeners.forEach((fn) => fn());
+      }
     })()
       .catch((e) => {
         this.failedAt.set(id, Date.now());

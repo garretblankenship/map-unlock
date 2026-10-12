@@ -22,7 +22,7 @@ import { t } from '../i18n';
 import * as db from '../services/db';
 import { regionsAt } from '../services/boundaries';
 import { boundaryFilesConfigured } from '../services/boundaryFiles';
-import { isOnline, isTransient, onConnectivityChange } from '../services/net';
+import { HttpError, isOnline, isTransient, onConnectivityChange } from '../services/net';
 import { offlineAreas } from '../services/offlineAreas';
 import { water } from '../services/water';
 
@@ -82,6 +82,10 @@ class ExplorationStore {
   private lastDiscovery: { at: LatLng; time: number } | null = null;
   private lastCoverageCheck: LatLng | null = null;
   private lastShownPosition: LatLng | null = null;
+  /** Regions the player removed; lookups don't bring them back (until a reset). */
+  private removedRegions = new Set<string>();
+  /** Counts loads, so work started before a reset can tell it's stale. */
+  private generation = 0;
   private waterTimer: ReturnType<typeof setTimeout> | null = null;
   private lastViewport: Viewport | null = null;
 
@@ -200,12 +204,16 @@ class ExplorationStore {
     // Rows written from here on are picked up by refreshCells. A minute of
     // overlap covers clock jitter; anything seen twice is ignored.
     this.syncedAt = Date.now() - 60_000;
-    const [cells, records, settings] = await Promise.all([
+    const gen = ++this.generation;
+    const [cells, records, settings, removed] = await Promise.all([
       db.loadCells(),
       db.loadRegions(),
       db.getMeta<Partial<Settings>>('settings'),
+      db.getMeta<string[]>('removedRegions'),
     ]);
+    if (gen !== this.generation) return;
     this.settings = { ...DEFAULT_SETTINGS, ...settings };
+    this.removedRegions = new Set(removed ?? []);
     this.unlocked = new Set(cells);
     this.levelCache.clear();
     this.regions = [];
@@ -218,6 +226,7 @@ class ExplorationStore {
       // Let the screen update between regions (a country takes a moment).
       await new Promise((r) => setTimeout(r, 0));
       const region = await this.prepareRegion(rec);
+      if (gen !== this.generation) return; // reset meanwhile
       this.regions.push(region);
       if (rec.totalCells === undefined) void db.saveRegionTotal(region.id, region.totalCells);
     }
@@ -318,13 +327,18 @@ class ExplorationStore {
   }
 
   async addRegions(records: RegionRecord[]) {
+    const gen = this.generation;
+    const known = (id: string) => this.removedRegions.has(id) || this.regions.some((r) => r.id === id);
     let added = false;
     for (const rec of records) {
-      if (this.regions.some((r) => r.id === rec.id)) continue;
+      if (known(rec.id)) continue;
       const region = await this.prepareRegion(rec);
-      await db.saveRegion({ ...rec, totalCells: region.totalCells });
+      // Progress was reset, or another lookup added it, meanwhile.
+      if (gen !== this.generation || known(rec.id)) continue;
+      // In the list before the write, so cells unlocked meanwhile count towards it.
       this.regions.push(region);
       added = true;
+      await db.saveRegion({ ...rec, totalCells: region.totalCells });
     }
     if (added) {
       this.selectedRegionId ??= this.defaultSelection();
@@ -334,6 +348,8 @@ class ExplorationStore {
   }
 
   async removeRegion(id: string) {
+    this.removedRegions.add(id);
+    await db.setMeta('removedRegions', [...this.removedRegions]);
     await db.deleteRegion(id);
     this.regions = this.regions.filter((r) => r.id !== id);
     if (this.selectedRegionId === id) this.selectedRegionId = this.defaultSelection();
@@ -422,34 +438,48 @@ class ExplorationStore {
     void this.flushLookups();
   }
 
-  /** Works through the queued places while there's a connection. */
+  /**
+   * Works through the queued places. Each is tried once per run: a place
+   * that fails (no signal, nothing cached) stays queued without holding up
+   * the ones behind it, which may be answered from boundary files saved on
+   * the phone.
+   */
   async flushLookups() {
     if (this.discovering || !this.ready || this.regionsLoading) return;
-    let list = await db.updatePendingPlaces((l) => {
-      const open = l.filter((p) => !this.isCovered(p));
-      return open.length === l.length ? l : open;
-    });
-    this.pendingPlaces = list.length;
-    // Boundary files cached on the phone (e.g. a saved area) answer without
-    // signal, so only skip when offline and there's nothing to fall back on.
-    if (list.length === 0 || (!isOnline() && !boundaryFilesConfigured)) return this.emit();
-
+    // Claimed before any await, so two triggers at once don't both run.
     this.discovering = true;
-    this.emit();
+    let failure: unknown = null;
     try {
-      for (let next: LatLng | undefined = list[0]; next; next = list[0]) {
+      let list = await db.updatePendingPlaces((l) => {
+        const open = l.filter((p) => !this.isCovered(p));
+        return open.length === l.length ? l : open;
+      });
+      this.pendingPlaces = list.length;
+      // Boundary files cached on the phone (e.g. a saved area) answer without
+      // signal, so only skip when offline and there's nothing to fall back on.
+      if (list.length === 0 || (!isOnline() && !boundaryFilesConfigured)) return;
+      this.emit();
+
+      const tried = new Set<string>();
+      const untried = () => list.find((p) => !tried.has(`${p.latitude},${p.longitude}`));
+      for (let next = untried(); next; next = untried()) {
+        tried.add(`${next.latitude},${next.longitude}`);
         const { regions, error } = await regionsAt(next.latitude, next.longitude);
         await this.addRegions(regions);
-        if (error) throw error;
+        if (error) {
+          failure ??= error;
+          // The server answered with an error: the rest would get the same.
+          if (error instanceof HttpError) break;
+          continue; // no signal: stays queued; the next may be cached
+        }
         const done = next;
         list = await db.updatePendingPlaces((l) => removePendingPlace(l, done).filter((p) => !this.isCovered(p)));
         this.pendingPlaces = list.length;
         this.emit();
       }
-      this.lastError = null;
-    } catch (e) {
-      // Weak or no signal: the places stay queued for the next attempt.
-      if (!isTransient(e)) this.lastError = e instanceof Error ? e.message : String(e);
+      // Weak or no signal isn't worth a message; anything else is.
+      if (!failure) this.lastError = null;
+      else if (!isTransient(failure)) this.lastError = failure instanceof Error ? failure.message : String(failure);
     } finally {
       this.discovering = false;
       this.emit();

@@ -19,7 +19,7 @@ import { t } from '../i18n';
 import { boundaryFilesConfigured, prefetchBoundaries } from './boundaryFiles';
 import { getMeta, setMeta } from './db';
 import { MAP_STYLE_URL } from './mapStyle';
-import { isOnline, onConnectivityChange } from './net';
+import { backoffEndsAt, isOnline, isTransient, onConnectivityChange } from './net';
 import { water } from './water';
 
 /**
@@ -59,6 +59,8 @@ type Entry = {
 /** Default MapLibre cache for map tiles you've looked at, on top of saved areas. */
 const AMBIENT_CACHE_BYTES = 256 * 1024 * 1024;
 const WATER_BATCH = 16;
+/** Shortest wait before carrying on with a download that stopped on a weak signal. */
+const RETRY_MIN_MS = 15_000;
 const waterDoneKey = (id: string) => `offlineWaterDone:${id}`;
 const boundariesDoneKey = (id: string) => `offlineBoundariesDone:${id}`;
 
@@ -105,7 +107,8 @@ class OfflineAreas {
       const meta = pack.metadata as Partial<PackMetadata>;
       const entry = this.track(pack.id, meta.name ?? t('offline.defaultName'), pack.bounds, meta.createdAt ?? 0);
       entry.water.complete = (await getMeta<boolean>(waterDoneKey(pack.id))) === true;
-      entry.boundaries.complete = (await getMeta<boolean>(boundariesDoneKey(pack.id))) === true;
+      entry.boundaries.complete =
+        !boundaryFilesConfigured || (await getMeta<boolean>(boundariesDoneKey(pack.id))) === true;
       this.applyStatus(entry, await pack.status());
       if (!entry.map.complete) await this.watch(pack, true);
       this.downloadWater(entry);
@@ -135,6 +138,9 @@ class OfflineAreas {
       (p, error) => this.onError(p.id, error),
     );
     const entry = this.track(pack.id, name, bounds, createdAt);
+    // Progress reported before the area was tracked (all of it, for an area
+    // already in the map cache) was dropped; catch up.
+    this.applyStatus(entry, await pack.status());
     this.emit();
     this.downloadWater(entry);
     this.downloadBoundaries(entry);
@@ -148,6 +154,21 @@ class OfflineAreas {
     await setMeta(boundariesDoneKey(id), false);
     this.entries.delete(id);
     this.emit();
+  }
+
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** After a download stopped on a weak signal: carry on once requests may be tried again. */
+  private retryLater() {
+    if (this.retryTimer) return;
+    const wait = Math.max(RETRY_MIN_MS, backoffEndsAt() - Date.now() + 1_000);
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      // Offline: resumed when the connection returns instead.
+      if (!isOnline()) return;
+      water.retryFailed();
+      void this.resumeAll();
+    }, wait);
   }
 
   /** Retries everything unfinished, e.g. when signal comes back. */
@@ -209,6 +230,8 @@ class OfflineAreas {
     entry.map.done = status.completedResourceCount;
     entry.map.complete = status.state === 'complete' || status.percentage >= 100;
     entry.area.bytes = status.completedResourceSize;
+    // Downloading again after an error: MapLibre recovered.
+    if (status.state === 'active') entry.area.error = null;
     this.refresh(entry, status.state === 'active');
   }
 
@@ -234,10 +257,14 @@ class OfflineAreas {
     this.refresh(entry);
     void prefetchBoundaries(entry.area.bounds)
       .then(async () => {
+        if (!this.entries.has(entry.area.id)) return; // deleted meanwhile
         b.complete = true;
         await setMeta(boundariesDoneKey(entry.area.id), true);
       })
-      .catch(() => undefined) // Retried when signal returns or the app restarts.
+      // Retried when the signal improves, it returns, or the app restarts.
+      .catch((e) => {
+        if (isTransient(e)) this.retryLater();
+      })
       .finally(() => {
         b.running = false;
         this.refresh(entry);
@@ -264,20 +291,28 @@ class OfflineAreas {
       for (let i = 0; i < tiles.length && this.entries.has(entry.area.id); i += WATER_BATCH) {
         const batch = tiles.slice(i, i + WATER_BATCH);
         const results = await Promise.allSettled(
-          batch.map(({ z, x, y }) => water.ensure({ z, x0: x, x1: x, y0: y, y1: y })),
+          batch.map(({ z, x, y }) => water.prefetch({ z, x0: x, x1: x, y0: y, y1: y })),
         );
+        let weakSignal = false;
         for (const r of results) {
           if (r.status === 'fulfilled') w.done++;
-          else failed++;
+          else {
+            failed++;
+            weakSignal ||= isTransient(r.reason);
+          }
         }
         this.refresh(entry);
         this.emit();
-        // No signal: stop here and pick up again when it returns.
-        if (failed > 0 && !isOnline()) break;
+        // No or weak signal: stop here (the rest would fail too, while the
+        // connection backs off) and pick up again later.
+        if (weakSignal) {
+          this.retryLater();
+          break;
+        }
       }
       w.running = false;
       w.complete = failed === 0 && w.done === w.total;
-      if (w.complete) await setMeta(waterDoneKey(entry.area.id), true);
+      if (w.complete && this.entries.has(entry.area.id)) await setMeta(waterDoneKey(entry.area.id), true);
       this.refresh(entry);
       this.emit();
     })();

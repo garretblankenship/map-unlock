@@ -4,7 +4,7 @@ import { type BoundaryMeta, type TileRegion, isSupportedMeta, regionsContaining,
 import type { Bounds } from '../core/mapgeo';
 import { REGION_LEVELS, type RegionRecord } from '../core/regions';
 import { loadBoundaryFile, saveBoundaryFile } from './db';
-import { HttpError, fetchWithTimeout } from './net';
+import { HttpError, NetworkError, fetchWithTimeout } from './net';
 
 /**
  * Region boundaries from the static files built by pipeline/, hosted at
@@ -20,22 +20,55 @@ const MAX_PREFETCH_REGIONS = 600;
 
 export const boundaryFilesConfigured = BASE_URL !== '';
 
+function parse<T>(body: string): T | undefined {
+  try {
+    return JSON.parse(body) as T;
+  } catch {
+    return undefined;
+  }
+}
+
+const inflight = new Map<string, Promise<unknown>>();
+
 /**
  * A file's JSON, from the phone's cache or the network. null means the
  * server has no such file; that's remembered too (an empty tile), except
- * for files that must exist, so fixing the hosting fixes the app.
+ * for files that must exist, so fixing the hosting fixes the app. Only
+ * valid JSON is cached: a Wi-Fi sign-in page answering instead of the
+ * server is treated like no signal, and tried again later.
  */
-async function getJson<T>(path: string, rememberMissing = true): Promise<T | null> {
+function getJson<T>(path: string, rememberMissing = true): Promise<T | null> {
   const url = `${BASE_URL}/${path}`;
+  // Saving an area and looking up a place in it ask for the same files.
+  let job = inflight.get(url) as Promise<T | null> | undefined;
+  if (!job) {
+    job = fetchJson<T>(url, path, rememberMissing).finally(() => inflight.delete(url));
+    inflight.set(url, job);
+  }
+  return job;
+}
+
+async function fetchJson<T>(url: string, path: string, rememberMissing: boolean): Promise<T | null> {
   const cached = await loadBoundaryFile(url);
-  if (cached !== undefined) return cached === null ? null : (JSON.parse(cached) as T);
+  if (cached === null) return null;
+  if (cached !== undefined) {
+    const value = parse<T>(cached);
+    if (value !== undefined) return value;
+    // A bad copy (cached by an earlier version): fetch it again.
+  }
   const body = await fetchWithTimeout(url, { headers: { Accept: 'application/json' } }, TIMEOUT_MS, async (res) => {
     if (res.status === 404) return null;
     if (!res.ok) throw new HttpError(`Boundary file ${path} failed (${res.status})`, res.status);
     return res.text();
   });
-  if (body !== null || rememberMissing) await saveBoundaryFile(url, body);
-  return body === null ? null : (JSON.parse(body) as T);
+  if (body === null) {
+    if (rememberMissing) await saveBoundaryFile(url, null);
+    return null;
+  }
+  const value = parse<T>(body);
+  if (value === undefined) throw new NetworkError(`Boundary file ${path} isn't valid JSON (a Wi-Fi sign-in page?)`);
+  await saveBoundaryFile(url, body);
+  return value;
 }
 
 let meta: Promise<BoundaryMeta> | null = null;
@@ -90,6 +123,7 @@ export async function boundaryRegionsAt(lat: number, lon: number): Promise<{ reg
  * call again later to finish (cached files aren't fetched twice).
  */
 export async function prefetchBoundaries(bounds: Bounds): Promise<void> {
+  if (!boundaryFilesConfigured) return;
   const m = await getMeta();
   const ids = new Set<string>();
   for (const t of tilesOver(m, bounds).slice(0, MAX_PREFETCH_TILES)) {
