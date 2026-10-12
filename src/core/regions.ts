@@ -63,6 +63,27 @@ export function regionWaterTiles(shape: Shape): TileRange {
   }
 }
 
+/**
+ * Rough work estimates, to show a loading indicator before work that can
+ * take more than about half a second on a phone. Preparing a region scans it
+ * row by row at full resolution (unless its size is already known) and
+ * checks every unlocked cell; both are fast for towns and slow for states
+ * and countries or very long histories.
+ */
+export const SLOW_WORK = {
+  /** Full-resolution rows (~30 m each) beyond which counting a region's cells is slow. */
+  scanRows: 10_000,
+  /** Unlocked cells beyond which re-checking them all is slow. */
+  unlockedCells: 150_000,
+};
+
+export function hydrateIsSlow(rec: RegionRecord, unlockedCount: number): boolean {
+  if (unlockedCount > SLOW_WORK.unlockedCells) return true;
+  if (rec.totalCells !== undefined) return false;
+  const { bbox } = shapeFromGeoJson(rec.geometry);
+  return bbox.maxY - bbox.minY > SLOW_WORK.scanRows;
+}
+
 export function hydrateRegion(rec: RegionRecord, unlocked: Iterable<number>): Region {
   const shape = shapeFromGeoJson(rec.geometry);
   const waterTiles = regionWaterTiles(shape);

@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BackgroundStep } from '../core/permissions';
 import { TextKey, t } from '../i18n';
 import { getBackgroundStep, startBackgroundTracking } from '../services/tracking';
+import { store } from '../state/store';
 import { makeStyles, useColors } from '../theme';
 
 /**
@@ -26,7 +27,7 @@ export default function BackgroundPermissionScreen() {
   const finish = async () => {
     if (done.current) return;
     done.current = true;
-    await startBackgroundTracking();
+    await store.whileBusy(t('busy.startingBackground'), startBackgroundTracking);
     router.back();
   };
 

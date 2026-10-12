@@ -92,3 +92,28 @@ describe('position updates', () => {
     expect(h.lookups.length).toBe(lookupsBefore);
   });
 });
+
+describe('loading indicator', () => {
+  it('shows while a state-sized region is prepared, then clears', async () => {
+    const labels: (string | null)[] = [];
+    const unsub = store.subscribe(() => labels.push(store.busyLabel));
+    await store.addRegions([
+      { id: 'R9', name: 'Big State', displayName: 'Big State', level: 'state', geometry: square(45, -100, 3), createdAt: 9 },
+    ]);
+    unsub();
+    expect(labels).toContain('Preparing Big State…');
+    expect(store.busyLabel).toBeNull();
+    expect(store.regions.some((r) => r.id === 'R9')).toBe(true);
+  });
+
+  it('stays hidden for a small town', async () => {
+    const labels: (string | null)[] = [];
+    const unsub = store.subscribe(() => labels.push(store.busyLabel));
+    await store.addRegions([
+      { id: 'R10', name: 'Hamlet', displayName: 'Hamlet', level: 'city', geometry: square(45, -100, 0.01), createdAt: 10 },
+    ]);
+    unsub();
+    expect(labels.every((l) => l === null)).toBe(true);
+  });
+});
+

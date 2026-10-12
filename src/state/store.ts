@@ -1,13 +1,24 @@
 import { getLocales } from 'expo-localization';
 import { useSyncExternalStore } from 'react';
 
+import { BusyTracker, type BusyOptions } from '../core/busy';
 import { Viewport, fogForViewport, fogWindow } from '../core/fog';
 import { addPendingPlace, removePendingPlace } from '../core/pending';
 import { shapeContains } from '../core/geometry';
-import { LOCAL_LEVELS, Region, RegionRecord, addCellsToRegion, applyWater, hydrateRegion } from '../core/regions';
+import {
+  LOCAL_LEVELS,
+  Region,
+  RegionRecord,
+  SLOW_WORK,
+  addCellsToRegion,
+  applyWater,
+  hydrateIsSlow,
+  hydrateRegion,
+} from '../core/regions';
 import { tilesForCells } from '../core/water';
 import { BASE_ZOOM, LatLng, distanceMeters, latToY, lonToX, parentKey } from '../core/tiles';
 import { UnitPreference, UnitSystem, resolveUnits } from '../core/units';
+import { t } from '../i18n';
 import * as db from '../services/db';
 import { regionsAt } from '../services/boundaries';
 import { boundaryFilesConfigured } from '../services/boundaryFiles';
@@ -62,6 +73,8 @@ class ExplorationStore {
   private listeners = new Set<() => void>();
   /** While the app is off screen, changes are noted but nothing re-renders. */
   private visible = true;
+  /** Slow operations in progress, for the loading indicator. */
+  private busy = new BusyTracker(() => this.emit());
   /** Database rows at or after this time haven't been seen yet (see refreshCells). */
   private syncedAt = 0;
   private changedWhileHidden = false;
@@ -128,6 +141,36 @@ class ExplorationStore {
     }
   }
 
+  /** What the loading indicator should say, or null when nothing slow is running. */
+  get busyLabel(): string | null {
+    return this.busy.label;
+  }
+
+  /** Runs work with the loading indicator (see core/busy.ts). */
+  whileBusy<T>(label: string, work: () => T | Promise<T>, options?: BusyOptions): Promise<T> {
+    return this.busy.run(label, work, options);
+  }
+
+  /** Prepares a region, with the loading indicator when it'll take a while. */
+  private async prepareRegion(rec: RegionRecord): Promise<Region> {
+    if (!hydrateIsSlow(rec, this.unlocked.size)) return hydrateRegion(rec, this.unlocked);
+    return this.busy.run(t('busy.preparingRegion', { name: rec.name }), () => hydrateRegion(rec, this.unlocked), {
+      showFirst: true,
+    });
+  }
+
+  /**
+   * Gets the fog's coarser grid ready for a viewport. Building it means a pass
+   * over every unlocked cell, which takes a moment with a long history, so it
+   * happens behind the loading indicator rather than mid-render.
+   */
+  async prepareFog(viewport: Viewport) {
+    const { level } = fogWindow(viewport);
+    if (level === BASE_ZOOM || this.levelCache.has(level)) return;
+    if (this.unlocked.size < SLOW_WORK.unlockedCells / 3) return;
+    await this.busy.run(t('busy.drawingFog'), () => this.cellsAtLevel(level), { showFirst: true });
+  }
+
   /** Units to show, from Settings or the phone's region. */
   get units(): UnitSystem {
     return resolveUnits(this.settings.units, this.phoneMeasurement);
@@ -173,7 +216,7 @@ class ExplorationStore {
     for (const rec of records) {
       // Let the screen update between regions (a country takes a moment).
       await new Promise((r) => setTimeout(r, 0));
-      const region = hydrateRegion(rec, this.unlocked);
+      const region = await this.prepareRegion(rec);
       this.regions.push(region);
       if (rec.totalCells === undefined) void db.saveRegionTotal(region.id, region.totalCells);
     }
@@ -245,9 +288,16 @@ class ExplorationStore {
       if (r.landCells !== null) continue;
       water
         .ensure(r.waterTiles)
-        .then(() => {
+        .then(async () => {
           if (r.landCells !== null || !this.regions.includes(r)) return;
-          applyWater(r, this.unlocked, water.lookup);
+          // Re-checks every unlocked cell; noticeable with a long history.
+          if (this.unlocked.size > SLOW_WORK.unlockedCells) {
+            await this.busy.run(t('busy.measuringWater', { name: r.name }), () => applyWater(r, this.unlocked, water.lookup), {
+              showFirst: true,
+            });
+          } else {
+            applyWater(r, this.unlocked, water.lookup);
+          }
           this.emit();
         })
         .catch(() => undefined);
@@ -268,7 +318,7 @@ class ExplorationStore {
     let added = false;
     for (const rec of records) {
       if (this.regions.some((r) => r.id === rec.id)) continue;
-      const region = hydrateRegion(rec, this.unlocked);
+      const region = await this.prepareRegion(rec);
       await db.saveRegion({ ...rec, totalCells: region.totalCells });
       this.regions.push(region);
       added = true;
@@ -314,11 +364,17 @@ class ExplorationStore {
   }
 
   async resetProgress() {
-    await db.resetAll();
-    this.lastDiscovery = null;
-    this.lastCoverageCheck = null;
-    this.selectedRegionId = null;
-    await this.load();
+    await this.busy.run(
+      t('busy.resetting'),
+      async () => {
+        await db.resetAll();
+        this.lastDiscovery = null;
+        this.lastCoverageCheck = null;
+        this.selectedRegionId = null;
+        await this.load();
+      },
+      { showFirst: true },
+    );
   }
 
   /** Regions containing a point, smallest first. */

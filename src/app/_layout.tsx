@@ -12,6 +12,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { AppState, useColorScheme } from 'react-native';
 
+import { BusyIndicator } from '../components/BusyIndicator';
 import { t } from '../i18n';
 import { startNetworkMonitor } from '../services/net';
 import { offlineAreas } from '../services/offlineAreas';
@@ -96,6 +97,7 @@ export default function RootLayout() {
         <Stack.Screen name="share" options={{ presentation: 'modal', title: t('share.title') }} />
         <Stack.Screen name="settings" options={{ title: t('settings.title'), headerBackTitle: t('regions.title') }} />
       </Stack>
+      <BusyIndicator />
     </ThemeProvider>
   );
 }

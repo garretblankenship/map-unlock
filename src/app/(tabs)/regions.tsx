@@ -50,7 +50,7 @@ export default function RegionsScreen() {
         {
           text: t('action.save'),
           onPress: () =>
-            offlineAreas.save(r.name, bounds).then(
+            store.whileBusy(t('busy.savingArea'), () => offlineAreas.save(r.name, bounds)).then(
               () => router.navigate('/offline'),
               (e) => Alert.alert(t('save.failed'), e instanceof Error ? e.message : String(e)),
             ),

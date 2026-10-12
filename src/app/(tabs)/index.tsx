@@ -51,10 +51,18 @@ export default function MapScreen() {
 
   // Recompute fog when the camera settles or new cells are unlocked.
   const unlockedCount = store.unlocked.size;
-  const fog = useMemo(
-    () => fogToGeoJSON(store.fog(viewport).polygons),
-    [viewport, unlockedCount, store.ready, store.waterVersion],
-  );
+  const [fog, setFog] = useState(() => fogToGeoJSON(store.fog(WORLD).polygons));
+  useEffect(() => {
+    let cancelled = false;
+    // Zooming out to a new scale may need a moment to prepare (with a long
+    // history); that happens behind the loading indicator, then the fog redraws.
+    void store.prepareFog(viewport).then(() => {
+      if (!cancelled) setFog(fogToGeoJSON(store.fog(viewport).polygons));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [viewport, unlockedCount, store.ready, store.waterVersion]);
 
   // Water is never fogged; fetch it for whatever is on screen.
   useEffect(() => store.requestWater(viewport), [viewport]);
@@ -110,7 +118,7 @@ export default function MapScreen() {
         {
           text: t('action.save'),
           onPress: () =>
-            offlineAreas.save(name, bounds).then(
+            store.whileBusy(t('busy.savingArea'), () => offlineAreas.save(name, bounds)).then(
               () => router.navigate('/offline'),
               (e) => Alert.alert(t('save.failed'), e instanceof Error ? e.message : String(e)),
             ),
@@ -122,7 +130,7 @@ export default function MapScreen() {
   const toggleBackground = async () => {
     if (store.backgroundTracking) return stopBackgroundTracking();
     const step = await getBackgroundStep();
-    if (step === 'start') await startBackgroundTracking();
+    if (step === 'start') await store.whileBusy(t('busy.startingBackground'), startBackgroundTracking);
     else router.push({ pathname: '/background-permission', params: { step } });
   };
 

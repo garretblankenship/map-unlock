@@ -104,6 +104,15 @@ export const en = {
   'share.a11y.open': 'Share progress',
   'regions.action.share': 'Share progress',
 
+  // Loading indicator for slow operations
+  'busy.preparingRegion': (p: { name: string }) => `Preparing ${p.name}…`,
+  'busy.measuringWater': (p: { name: string }) => `Measuring the water in ${p.name}…`,
+  'busy.drawingFog': 'Drawing your map…',
+  'busy.resetting': 'Resetting progress…',
+  'busy.savingArea': 'Saving area…',
+  'busy.startingBackground': 'Turning on background exploring…',
+  'busy.sharing': 'Making your card…',
+
   // Settings screen
   'settings.title': 'Settings',
   'settings.a11y.open': 'Settings',

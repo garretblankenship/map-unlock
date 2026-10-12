@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { fogForViewport, fogFromGrid, traceRings } from './fog';
 import { shapeAreaInCells, shapeCellCount, shapeContainsCell, shapeFromGeoJson } from './geometry';
 import { REVEAL_SETTINGS, cellsAround, cellsForMove, isUsableFix } from './reveal';
-import { completion, formatPercent, hydrateRegion } from './regions';
+import { type RegionRecord, SLOW_WORK, completion, formatPercent, hydrateIsSlow, hydrateRegion } from './regions';
 import {
   BASE_ZOOM,
   cellAt,
@@ -226,5 +226,28 @@ describe('regions', () => {
     expect(formatPercent(0)).toBe('0%');
     expect(formatPercent(0.5)).toBe('50.0%');
     expect(formatPercent(0.000012)).toBe('0.0012%');
+  });
+});
+
+describe('slow work estimates', () => {
+  const square = (lat: number, lon: number, d: number): RegionRecord['geometry'] => ({
+    type: 'Polygon',
+    coordinates: [[[lon - d, lat - d], [lon + d, lat - d], [lon + d, lat + d], [lon - d, lat + d], [lon - d, lat - d]]],
+  });
+  const rec = (d: number, totalCells?: number): RegionRecord => ({
+    id: 'R1', name: 'X', displayName: 'X', level: 'state', geometry: square(45, -100, d), createdAt: 0, totalCells,
+  });
+
+  it('flags states and countries, not towns', () => {
+    expect(hydrateIsSlow(rec(0.05), 1000)).toBe(false); // ~10 km town
+    expect(hydrateIsSlow(rec(3), 1000)).toBe(true); // ~600 km state
+  });
+
+  it('skips the slow count when the size is already known', () => {
+    expect(hydrateIsSlow(rec(3, 123_456), 1000)).toBe(false);
+  });
+
+  it('flags any region when the history is very long', () => {
+    expect(hydrateIsSlow(rec(0.05, 10), SLOW_WORK.unlockedCells + 1)).toBe(true);
   });
 });
