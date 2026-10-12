@@ -76,6 +76,35 @@ describe('reveal', () => {
     expect(isUsableFix({ ...b, speed: 250 })).toBe(false);
     expect(REVEAL_SETTINGS.maxSpeedMps).toBeLessThan(100);
   });
+
+  it("doesn't guess the route after a long break (app closed, then a tram ride)", () => {
+    const a = { ...SYDNEY, timestamp: 0 };
+    // ~900m east, 5 minutes later.
+    const b = { latitude: SYDNEY.latitude, longitude: SYDNEY.longitude + 0.00972, timestamp: 300_000 };
+    const mid = cellAt(SYDNEY.latitude, SYDNEY.longitude + 0.00486);
+    expect(new Set(cellsForMove(a, b)).has(mid)).toBe(false);
+    expect(new Set(cellsForMove(a, b)).has(cellAt(b.latitude, b.longitude))).toBe(true);
+  });
+
+  it('still joins up a short gap after a long break', () => {
+    const a = { ...SYDNEY, timestamp: 0 };
+    // ~150m east, 10 minutes later (GPS waking from low power).
+    const b = { latitude: SYDNEY.latitude, longitude: SYDNEY.longitude + 0.00162, timestamp: 600_000 };
+    const mid = cellAt(SYDNEY.latitude, SYDNEY.longitude + 0.00081);
+    expect(new Set(cellsForMove(a, b)).has(mid)).toBe(true);
+  });
+
+  it('fills in the short way across the 180° meridian', () => {
+    // Taveuni, Fiji: ~220m east across the line in a minute.
+    const a = { latitude: -16.8, longitude: 179.999, timestamp: 0 };
+    const b = { latitude: -16.8, longitude: -179.999, timestamp: 60_000 };
+    const cells = cellsForMove(a, b);
+    expect(cells.length).toBeLessThan(200);
+    for (const k of cells) {
+      const lon = xToLon(keyX(k) + 0.5);
+      expect(Math.abs(lon)).toBeGreaterThan(179.9);
+    }
+  });
 });
 
 /** Rasterizes fog polygons back onto the grid to check they cover exactly the locked cells. */

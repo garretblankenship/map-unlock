@@ -1,5 +1,6 @@
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
+import { AppState, Platform } from 'react-native';
 
 import { INITIAL_MOTION, MotionMode, MotionState, nextMotion } from '../core/motion';
 import { addPendingPlace } from '../core/pending';
@@ -45,8 +46,10 @@ async function ingest(fixes: Fix[]): Promise<void> {
     last = fix;
   }
   if (!last || keys.size === 0) return;
-  await setLastFix(last);
+  // Cells first: if saving them fails, the next batch still continues the
+  // trail from the last saved fix instead of skipping this stretch.
   const added = await saveCells([...keys], store.ready ? store.unlocked : undefined);
+  await setLastFix(last);
   if (store.ready) {
     store.applyNewCells(added);
   } else {
@@ -98,17 +101,33 @@ function taskOptions(mode: MotionMode): Location.LocationTaskOptions {
   };
 }
 
+/**
+ * Android only lets the location service be restarted (which is how its
+ * settings change) while the app is on screen, so a switch made from the
+ * background task fails. Switching to low power on screen and failing to
+ * switch back in a pocket would leave a whole hike unrecorded, so Android
+ * keeps the moving settings throughout.
+ */
+const SWITCHES_MOTION_MODE = Platform.OS === 'ios';
+
 let motion: MotionState | null = null;
 
 /** Follows moving/still from background fixes and switches GPS settings to match. */
 async function updateMotion(fixes: Fix[]) {
+  if (!SWITCHES_MOTION_MODE) return;
   motion ??= (await getMeta<MotionState>('motion')) ?? INITIAL_MOTION;
-  const before = motion.mode;
-  for (const fix of [...fixes].sort((a, b) => a.timestamp - b.timestamp)) motion = nextMotion(motion, fix);
-  await setMeta('motion', motion);
-  if (motion.mode !== before && (await isBackgroundTrackingActive())) {
-    await Location.startLocationUpdatesAsync(BACKGROUND_TASK, taskOptions(motion.mode));
+  let next = motion;
+  for (const fix of [...fixes].sort((a, b) => a.timestamp - b.timestamp)) next = nextMotion(next, fix);
+  if (next.mode !== motion.mode && (await isBackgroundTrackingActive())) {
+    try {
+      await Location.startLocationUpdatesAsync(BACKGROUND_TASK, taskOptions(next.mode));
+    } catch {
+      // Keep the mode GPS is actually in, so the next batch tries again.
+      next = { ...next, mode: motion.mode };
+    }
   }
+  motion = next;
+  await setMeta('motion', motion);
 }
 
 // Background updates are delivered here, even if the app was swiped away
@@ -123,6 +142,8 @@ TaskManager.defineTask<{ locations: Location.LocationObject[] }>(BACKGROUND_TASK
 });
 
 let foregroundSub: Location.LocationSubscription | null = null;
+/** Counts starts and stops, so a start that finishes late can tell it's stale. */
+let foregroundRun = 0;
 
 /**
  * Live location while the app is on screen, for a responsive map. It stops
@@ -131,13 +152,15 @@ let foregroundSub: Location.LocationSubscription | null = null;
  * off, nothing should be using GPS at all.
  */
 export async function startForegroundTracking(): Promise<boolean> {
+  const run = ++foregroundRun;
   const { status } = await Location.requestForegroundPermissionsAsync();
   if (status !== 'granted') {
     store.setError(t('location.permissionNeeded'));
     return false;
   }
   foregroundSub?.remove();
-  foregroundSub = await Location.watchPositionAsync(
+  foregroundSub = null;
+  const sub = await Location.watchPositionAsync(
     // "High" is plenty for a 50 m reveal radius; "BestForNavigation" adds
     // sensor fusion and costs noticeably more power.
     { accuracy: Location.Accuracy.High, distanceInterval: 5, timeInterval: 2000 },
@@ -149,12 +172,18 @@ export async function startForegroundTracking(): Promise<boolean> {
     },
     (reason) => store.setError(t('location.error', { reason })),
   );
+  // Started again or stopped meanwhile, or the app left the screen while
+  // this was starting (e.g. iOS launched it in the background): on-screen
+  // GPS only runs on screen. Tracking stays "on" so it resumes there.
+  if (run !== foregroundRun || AppState.currentState === 'background') sub.remove();
+  else foregroundSub = sub;
   store.setError(null);
   store.setTracking(true, store.backgroundTracking);
   return true;
 }
 
 export function stopForegroundTracking() {
+  foregroundRun++;
   foregroundSub?.remove();
   foregroundSub = null;
   store.setTracking(false, store.backgroundTracking);
@@ -162,6 +191,7 @@ export function stopForegroundTracking() {
 
 /** The app left the screen: stop on-screen GPS, keeping it "on" so it resumes. */
 export function pauseForegroundTracking() {
+  foregroundRun++;
   foregroundSub?.remove();
   foregroundSub = null;
 }

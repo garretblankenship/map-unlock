@@ -81,6 +81,7 @@ class ExplorationStore {
   private levelCache = new Map<number, Set<number>>();
   private lastDiscovery: { at: LatLng; time: number } | null = null;
   private lastCoverageCheck: LatLng | null = null;
+  private lastShownPosition: LatLng | null = null;
   private waterTimer: ReturnType<typeof setTimeout> | null = null;
   private lastViewport: Viewport | null = null;
 
@@ -223,6 +224,8 @@ class ExplorationStore {
     this.regionsLoading = false;
     this.selectedRegionId ??= this.defaultSelection();
     this.emit();
+    // Cells the background task saved while this was loading.
+    void this.refreshCells();
     this.loadRegionWater();
     void this.flushLookups();
     // A position that arrived while regions were loading wasn't checked yet.
@@ -343,10 +346,13 @@ class ExplorationStore {
    * coverage is only re-checked every 50 m.
    */
   setPosition(p: LatLng) {
-    const prev = this.position;
     this.position = p;
-    if (prev && distanceMeters(prev, p) < 3) return;
-    this.emit();
+    // Compared with the last position shown or checked, not the last fix:
+    // fixes a metre or two apart would otherwise never add up to a change.
+    if (!this.lastShownPosition || distanceMeters(this.lastShownPosition, p) >= 3) {
+      this.lastShownPosition = p;
+      this.emit();
+    }
     if (this.lastCoverageCheck && distanceMeters(this.lastCoverageCheck, p) < 50) return;
     this.lastCoverageCheck = p;
     void this.maybeDiscover(p);

@@ -1,4 +1,4 @@
-// Registers the background location task; must load before anything else.
+// The background location task is registered by index.ts, before this loads.
 import {
   isBackgroundTrackingActive,
   pauseForegroundTracking,
@@ -47,6 +47,8 @@ export default function RootLayout() {
   const dark = useColorScheme() === 'dark';
   useEffect(() => {
     let cancelled = false;
+    // iOS can launch the app straight into the background (for location).
+    store.setVisible(AppState.currentState !== 'background');
     const stopNetworkMonitor = startNetworkMonitor();
     (async () => {
       try {

@@ -33,6 +33,12 @@ describe('motion', () => {
     expect(nextMotion(still, fix(90, 400, 20)).mode).toBe('moving');
   });
 
+  it('wakes up after a big move even with cell-tower accuracy', () => {
+    const still = run(Array.from({ length: 20 }, (_, i) => fix(0, i * 15)));
+    expect(nextMotion(still, fix(250, 400, 1500)).mode).toBe('still');
+    expect(nextMotion(still, fix(400, 400, 1500)).mode).toBe('moving');
+  });
+
   it('saves battery indoors, where fixes drift by tens of metres', () => {
     // Accuracy ~60 m, positions wandering up to 50 m from the first one.
     const indoors = Array.from({ length: 20 }, (_, i) => fix((i % 4) * 15 - 10, i * 15, 60));

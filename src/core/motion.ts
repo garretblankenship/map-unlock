@@ -25,8 +25,10 @@ export const MOTION_SETTINGS = {
   stillAfterMs: 3 * 60_000,
   /** Indoors, fixes wander by tens of metres; noise up to this is still "standing still". */
   maxNoiseMeters: 100,
-  /** Low-power fixes are rough; only a move this big (or twice their error) wakes GPS up. */
+  /** Low-power fixes are rough; only a move this big (or twice their error, up to maxWakeMeters) wakes GPS up. */
   wakeRadiusMeters: 75,
+  /** Cell-tower fixes can be kilometres out; a move this big always wakes GPS. */
+  maxWakeMeters: 300,
   /** Reported speed above this means moving, whatever the positions say (m/s, a slow walk). */
   movingSpeedMps: 1.2,
 };
@@ -34,7 +36,8 @@ export const MOTION_SETTINGS = {
 export const INITIAL_MOTION: MotionState = { mode: 'moving', anchor: null, since: 0 };
 
 export function nextMotion(state: MotionState, fix: Fix): MotionState {
-  const { stillRadiusMeters, stillAfterMs, maxNoiseMeters, wakeRadiusMeters, movingSpeedMps } = MOTION_SETTINGS;
+  const { stillRadiusMeters, stillAfterMs, maxNoiseMeters, wakeRadiusMeters, maxWakeMeters, movingSpeedMps } =
+    MOTION_SETTINGS;
   const here = { latitude: fix.latitude, longitude: fix.longitude };
   const accuracy = fix.accuracy ?? 0;
   const fast = fix.speed != null && fix.speed > movingSpeedMps && accuracy <= maxNoiseMeters;
@@ -44,7 +47,7 @@ export function nextMotion(state: MotionState, fix: Fix): MotionState {
   const distance = distanceMeters(state.anchor, here);
 
   if (state.mode === 'still') {
-    return fast || distance > Math.max(wakeRadiusMeters, 2 * accuracy) ? moved() : state;
+    return fast || distance > Math.max(wakeRadiusMeters, Math.min(2 * accuracy, maxWakeMeters)) ? moved() : state;
   }
 
   // Moving: a fix within its own error of where the stay began is consistent
